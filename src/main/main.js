@@ -21,6 +21,8 @@ function createWindow() {
       contextIsolation: false,   // 禁用上下文隔离
       enableRemoteModule: true,  // 启用远程模块
       webSecurity: true,         // 启用web安全性
+      // 在生产环境中禁用开发者工具
+      // devTools: process.env.NODE_ENV === 'development'
     }
   });
 
@@ -46,6 +48,13 @@ function createWindow() {
   });
 }
 
+// 注册IPC监听器，用于根据视频宽高比调整窗口大小
+ipcMain.on('resize-window-to-aspect-ratio', (event, { width, height }) => {
+  // 由于窗口大小现在固定，不再执行调整大小的操作
+  // 如果后续需要恢复该功能，可以重新实现或添加配置选项
+  console.log('Window resizing disabled, using fixed window size');
+});
+
 // 应用程序准备就绪时创建窗口
 app.whenReady().then(createWindow);
 
@@ -60,4 +69,4 @@ app.on('activate', function () {
   // 在 macOS 上，当点击 dock 图标并且没有其他窗口打开时，
   // 通常在应用程序中重新创建一个窗口
   if (mainWindow === null) createWindow();
-});
+}); 

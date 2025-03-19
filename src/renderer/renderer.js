@@ -61,10 +61,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 初始化
     videoPlayer.controls = false; // 使用自定义控件
-
+    
     // 加载库和上次激活的库
     initializeLibraries();
-
+    
     // 初始化库
     function initializeLibraries() {
         libraryService.loadLibraries();
@@ -78,43 +78,48 @@ document.addEventListener('DOMContentLoaded', () => {
     // 渲染库列表
     function renderLibraries() {
         librariesList.innerHTML = '';
-
+        
         libraryService.getAllLibraries().forEach((library, index) => {
             const libraryItem = document.createElement('div');
             libraryItem.className = `library-item ${index === libraryService.getCurrentLibraryIndex() ? 'active' : ''}`;
             libraryItem.dataset.index = index;
-
+            
             const libraryName = document.createElement('div');
             libraryName.className = 'library-name';
             libraryName.textContent = library.name || fileSystemService.getLastPathSegment(library.path);
-
+            
+            const libraryPath = document.createElement('div');
+            libraryPath.className = 'library-path';
+            libraryPath.textContent = library.path;
+            
             const removeBtn = document.createElement('div');
             removeBtn.className = 'library-remove';
             removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-
+            
             libraryItem.appendChild(libraryName);
+            libraryItem.appendChild(libraryPath);
             libraryItem.appendChild(removeBtn);
-
+            
             libraryItem.addEventListener('click', (e) => {
                 if (!e.target.closest('.library-remove')) {
                     const library = libraryService.selectLibrary(index);
-
+                    
                     // 更新激活类
                     document.querySelectorAll('.library-item').forEach(item => {
                         item.classList.remove('active');
                     });
                     libraryItem.classList.add('active');
-
+                    
                     loadLibraryContent(library);
                 }
             });
-
+            
             // 删除库按钮事件
             removeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const result = libraryService.removeLibrary(index);
                 renderLibraries();
-
+                
                 if (typeof result === 'object') {
                     // 如果返回的是库对象，加载该库
                     loadLibraryContent(result);
@@ -123,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     playlistContainer.innerHTML = '';
                 }
             });
-
+            
             librariesList.appendChild(libraryItem);
         });
     }
@@ -132,26 +137,24 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadLibraryContent(library) {
         // 防御性检查 - 确保library存在
         if (!library) {
-            console.error("Invalid library parameter:", library);
             if (playlistContainer) {
                 playlistContainer.innerHTML = '<div class="empty-message">Invalid library</div>';
             }
             return;
         }
-
+        
         // 防御性检查 - 确保library.files存在
         if (!library.files) {
-            console.error("Library has no files:", library);
             if (playlistContainer) {
                 playlistContainer.innerHTML = '<div class="empty-message">No files in this library</div>';
             }
             return;
         }
-
+        
         try {
             // 保存目录文件供字幕匹配使用
             window.lastDirectoryFiles = library.files;
-
+            
             // 使用PlaylistService生成播放列表
             playlistService.populatePlaylist(library.files, playlistContainer, (file, item) => {
                 // 播放列表项点击回调
@@ -166,31 +169,58 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 更新进度条和字幕
+    // 更新进度条
     const updateProgress = () => {
-        if (!videoPlayer.duration) return;
-        const percent = (videoPlayer.currentTime / videoPlayer.duration) * 100;
-        progressFill.style.width = `${percent}%`;
-        currentTimeEl.textContent = videoPlayerService.formatTime(videoPlayer.currentTime);
-        durationEl.textContent = videoPlayerService.formatTime(videoPlayer.duration);
+        if (videoPlayer.duration) {
+            const percent = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+            progressFill.style.width = `${percent}%`;
+            currentTimeEl.textContent = videoPlayerService.formatTime(videoPlayer.currentTime);
+            durationEl.textContent = videoPlayerService.formatTime(videoPlayer.duration);
+        }
+    };
 
-        // 检查和更新字幕
-        if (!subtitleService.getAllSubtitles().length) return;
-        const subtitleIndex = subtitleService.findSubtitleAtTime(videoPlayer.currentTime);
-
-        if (subtitleIndex !== -1) {
-            if (subtitleIndex !== subtitleService.getCurrentSubtitleIndex()) {
-                subtitleService.setCurrentSubtitleIndex(subtitleIndex);
-                displaySubtitle(subtitleIndex);
-                videoPlayerService.resetCurrentRepeat();
+    // 检查和更新字幕
+    const checkSubtitle = () => {
+        if (!videoPlayer || !subtitleService.getAllSubtitles().length) return;
+        
+        const currentTime = videoPlayer.currentTime;
+        
+        // 寻找当前时间对应的字幕
+        const subtitleIndex = subtitleService.findSubtitleAtTime(currentTime);
+        
+        // 字幕发生变化时
+        if (subtitleIndex !== -1 && subtitleIndex !== subtitleService.getCurrentSubtitleIndex()) {
+            const prevIndex = subtitleService.getCurrentSubtitleIndex();
+            subtitleService.setCurrentSubtitleIndex(subtitleIndex);
+            displaySubtitle(subtitleIndex);
+            videoPlayerService.resetCurrentRepeat();
+            
+            console.log(`字幕变化：从第${prevIndex + 1}句到第${subtitleIndex + 1}句`);
+        }
+        
+        // 如果没有找到当前字幕，什么也不做
+        if (subtitleService.getCurrentSubtitleIndex() === -1) return;
+        
+        const currentSubtitle = subtitleService.getAllSubtitles()[subtitleService.getCurrentSubtitleIndex()];
+        const timeUntilEnd = currentSubtitle.endTime - currentTime;
+        
+        // 这个扩大的判断窗口用于避免播放器跳过字幕
+        const isNearEnd = timeUntilEnd <= 0.1;
+        
+        if (isNearEnd) {
+            // 无限循环模式
+            if (videoPlayerService.isInfiniteLoopMode()) {
+                console.log(`无限循环：重播第${subtitleService.getCurrentSubtitleIndex() + 1}句`);
+                videoPlayer.currentTime = currentSubtitle.startTime + 0.01; // 添加0.01s避免精度问题
+                return;
             }
-
-            const currentSubtitle = subtitleService.getAllSubtitles()[subtitleIndex];
-            const timeUntilEnd = currentSubtitle.endTime - videoPlayer.currentTime;
-
-            if (timeUntilEnd <= 0.1 && videoPlayerService.shouldRepeat()) {
-                videoPlayer.currentTime = currentSubtitle.startTime;
+            
+            // 有限重复模式
+            if (videoPlayerService.getCurrentRepeat() < videoPlayerService.getRepeatCount() - 1) {
                 videoPlayerService.incrementCurrentRepeat();
+                console.log(`有限重复：第${videoPlayerService.getCurrentRepeat()}/${videoPlayerService.getRepeatCount()-1}次重复第${subtitleService.getCurrentSubtitleIndex() + 1}句`);
+                videoPlayer.currentTime = currentSubtitle.startTime + 0.01; // 添加0.01s避免精度问题
+                return;
             }
         }
     };
@@ -198,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 显示字幕
     const displaySubtitle = (index) => {
         const subtitles = subtitleService.getAllSubtitles();
-
+        
         if (index < 0 || index >= subtitles.length) {
             subtitleOriginal.textContent = '';
             subtitleTranslation.textContent = '';
@@ -207,14 +237,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const subtitle = subtitles[index];
-
+        
         // 保留字幕文本中的换行符
         subtitleOriginal.innerHTML = subtitle.text.replace(/\n/g, '<br>');
         subtitleTranslation.innerHTML = subtitle.translation ? subtitle.translation.replace(/\n/g, '<br>') : '';
-
+        
         // 更新字幕计数器
         subtitleCounter.textContent = `${index + 1}/${subtitles.length}`;
-
+        
         // 更新字幕下拉选择框
         subtitleSelect.value = index;
     };
@@ -223,16 +253,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const goToSubtitle = (index) => {
         const subtitles = subtitleService.getAllSubtitles();
         if (index < 0 || index >= subtitles.length) return;
-
+        
         subtitleService.setCurrentSubtitleIndex(index);
         const subtitle = subtitles[index];
-
+        
         videoPlayer.currentTime = subtitle.startTime;
         displaySubtitle(index);
-
+        
         // 重置重复计数器
         videoPlayerService.resetCurrentRepeat();
-
+        
         if (videoPlayer.paused && videoPlayerService.isVideoPlaying()) {
             videoPlayer.play();
         }
@@ -242,11 +272,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function goToNextSubtitle() {
         const subtitles = subtitleService.getAllSubtitles();
         if (!subtitles || subtitles.length === 0) return;
-
+        
         // 获取当前时间和下一个字幕索引
         const currentTime = videoPlayer.currentTime;
         let nextIndex = -1;
-
+        
         // 查找下一个字幕
         for (let i = 0; i < subtitles.length; i++) {
             if (subtitles[i].startTime > currentTime) {
@@ -254,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             }
         }
-
+        
         // 如果找到下一个字幕，跳转到它
         if (nextIndex !== -1) {
             videoPlayer.currentTime = subtitles[nextIndex].startTime + 0.01; // 添加一个小偏移确保触发字幕
@@ -272,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (repeatControlElement) {
             repeatControlElement.classList.remove('custom');
         }
-
+        
         if (value === "infinite") {
             videoPlayerService.setInfiniteLoopMode(true);
             loopSubtitleBtn.classList.add('active');
@@ -280,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 repeatCountInput.disabled = true;
                 repeatCountInput.style.display = 'none';
             }
-
+            
             // 如果当前有字幕正在播放，立即跳到当前字幕开头
             const currentSubtitleIndex = subtitleService.getCurrentSubtitleIndex();
             if (currentSubtitleIndex >= 0) {
@@ -313,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 切换无限循环模式
     const toggleInfiniteLoop = () => {
         const isInfiniteMode = videoPlayerService.toggleInfiniteLoopMode();
-
+        
         // 更新UI
         if (isInfiniteMode) {
             loopSubtitleBtn.classList.add('active');
@@ -321,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (document.querySelector('.repeat-control')) {
                 document.querySelector('.repeat-control').classList.remove('custom');
             }
-
+            
             // 如果当前有字幕正在播放，立即跳到当前字幕开头
             const currentSubtitleIndex = subtitleService.getCurrentSubtitleIndex();
             if (currentSubtitleIndex >= 0) {
@@ -347,19 +377,32 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const filename = videoPlayerService.loadVideoFile(file, videoPlayer);
             document.title = `Playing: ${filename}`;
-
+            
             // 重置控件
             subtitleService.setCurrentSubtitleIndex(-1);
             displaySubtitle(-1);
             videoPlayerService.resetCurrentRepeat();
-
+            
             // 自动播放
             videoPlayer.onloadedmetadata = () => {
                 updateProgress();
                 const isPlaying = videoPlayerService.togglePlayPause(videoPlayer);
                 playPauseBtn.innerHTML = isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
+                
+                // 获取视频尺寸并调整窗口大小以匹配视频宽高比
+                const videoWidth = videoPlayer.videoWidth;
+                const videoHeight = videoPlayer.videoHeight;
+                
+                if (videoWidth && videoHeight) {
+                    console.log(`视频尺寸: ${videoWidth}x${videoHeight}`);
+                    // 发送消息到主进程以调整窗口大小
+                    ipcRenderer.send('resize-window-to-aspect-ratio', {
+                        width: videoWidth,
+                        height: videoHeight
+                    });
+                }
             };
-
+            
             // 尝试加载匹配的字幕
             tryLoadMatchingSubtitle(file);
         } catch (error) {
@@ -372,21 +415,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const tryLoadMatchingSubtitle = (videoFile) => {
         // 使用FileSystemService查找匹配的字幕
         const srtFile = fileSystemService.findMatchingSubtitle(videoFile);
-
+        
         if (srtFile) {
             loadSubtitleFile(srtFile);
             return true;
         }
-
+        
         // 兼容旧的方法，用于File API加载的文件
         if (window.lastDirectoryFiles && window.lastDirectoryFiles.length > 0) {
             const videoFileName = videoFile.name.substring(0, videoFile.name.lastIndexOf('.'));
-
+            
             // 查找与基本名称相同的SRT文件（不区分大小写）
-            const matchingSrt = Array.from(window.lastDirectoryFiles).find(file =>
-                file.name.toLowerCase() === (videoFileName.toLowerCase() + '.srt') ||
+            const matchingSrt = Array.from(window.lastDirectoryFiles).find(file => 
+                file.name.toLowerCase() === (videoFileName.toLowerCase() + '.srt') || 
                 file.name.toLowerCase() === (videoFileName.trim().toLowerCase() + '.srt'));
-
+                
             if (matchingSrt) {
                 console.log("Found matching subtitle:", matchingSrt.name);
                 loadSubtitleFile(matchingSrt);
@@ -403,22 +446,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadSubtitleFile = async (file) => {
         try {
             const subtitles = await subtitleService.loadSubtitleFile(file);
-
+            
             // 填充字幕选择下拉框
             subtitleSelect.innerHTML = '<option value="">跳转到字幕...</option>';
-
+            
             subtitles.forEach((subtitle, index) => {
                 const option = document.createElement('option');
                 option.value = index;
                 option.textContent = `${index + 1}: ${subtitle.text.substring(0, 30)}${subtitle.text.length > 30 ? '...' : ''}`;
                 subtitleSelect.appendChild(option);
             });
-
+            
             displaySubtitle(-1);
-
+            
             subtitleBtn.style.opacity = '1';
             subtitleService.setSubtitlesVisible(true);
-
+            
             // 如果视频已经在播放，查找并显示对应的字幕
             if (videoPlayer.currentTime > 0) {
                 const subtitleIndex = subtitleService.findSubtitleAtTime(videoPlayer.currentTime);
@@ -434,11 +477,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 事件监听器
-
+    
     // 视频时间更新
     videoPlayer.addEventListener('timeupdate', () => {
         updateProgress();
-
+        
         if (subtitleService.isSubtitlesVisible() && subtitleService.getAllSubtitles().length > 0) {
             checkSubtitle();
         }
@@ -489,7 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
     subtitleBtn.addEventListener('click', () => {
         const isVisible = subtitleService.toggleSubtitlesVisibility();
         subtitleBtn.style.opacity = isVisible ? '1' : '0.5';
-
+        
         if (!isVisible) {
             subtitleOriginal.textContent = '';
             subtitleTranslation.textContent = '';
@@ -527,7 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ],
             title: '选择字幕文件'
         });
-
+        
         if (filePaths && filePaths.length > 0) {
             const srtPath = filePaths[0];
             try {
@@ -554,7 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ],
             title: '选择视频文件'
         });
-
+        
         if (filePaths && filePaths.length > 0) {
             const videoPath = filePaths[0];
             try {
@@ -565,9 +608,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     size: fs.statSync(videoPath).size,
                     lastModified: fs.statSync(videoPath).mtimeMs
                 };
-
+                
                 handleVideoSelection(videoFile);
-
+                
                 // 添加到播放列表
                 playlistContainer.innerHTML = '';
                 const item = document.createElement('div');
@@ -587,16 +630,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const folderPath = dialog.showOpenDialogSync({
             properties: ['openDirectory']
         });
-
+        
         if (folderPath && folderPath.length > 0) {
             const selectedPath = folderPath[0];
-
+            
             try {
                 // 检查路径是否存在
                 if (fs.existsSync(selectedPath)) {
                     const filesList = [];
                     fileSystemService.collectFilesRecursively(selectedPath, filesList);
-
+                    
                     // 添加这个目录到库中
                     const library = libraryService.addLibrary(selectedPath, filesList);
                     renderLibraries();
@@ -635,4 +678,4 @@ document.addEventListener('DOMContentLoaded', () => {
         videoPlayerService.isPlaying = false;
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
     });
-});
+}); 
