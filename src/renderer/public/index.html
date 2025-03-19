@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +14,7 @@
         .reload-message {
             display: none;
         }
-        
+
         /* 启动加载界面样式 */
         #loading-screen {
             position: fixed;
@@ -29,12 +30,12 @@
             z-index: 9999;
             transition: opacity 0.5s ease-out;
         }
-        
+
         #loading-screen.hide {
             opacity: 0;
             pointer-events: none;
         }
-        
+
         .loading-spinner {
             border: 4px solid rgba(255, 255, 255, 0.1);
             border-radius: 50%;
@@ -44,17 +45,22 @@
             animation: spin 1s linear infinite;
             margin-bottom: 20px;
         }
-        
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
-        
+
         .loading-text {
             color: #fff;
             font-size: 18px;
         }
-        
+
         /* 可拖拽区域样式 */
         .draggable-area {
             -webkit-app-region: drag;
@@ -62,7 +68,7 @@
             height: 32px;
             background-color: var(--sidebar-color);
         }
-        
+
         /* 调整侧边栏头部布局 */
         .sidebar-header {
             position: relative;
@@ -71,21 +77,22 @@
             padding-right: 15px;
             padding-bottom: 15px;
         }
-        
+
         /* 紫色按钮两侧的可拖拽区域 */
         .button-wrapper {
             position: relative;
             display: flex;
             align-items: center;
         }
-        
-        .drag-area-left, .drag-area-right {
+
+        .drag-area-left,
+        .drag-area-right {
             -webkit-app-region: drag;
             height: 50px;
             flex: 1;
             background-color: var(--sidebar-color);
         }
-        
+
         /* 调整紫色按钮样式 */
         .btn.primary-btn {
             width: 60%;
@@ -98,12 +105,13 @@
             -webkit-app-region: no-drag;
             z-index: 10;
         }
-        
+
         .btn.primary-btn i {
             margin-right: 5px;
         }
     </style>
 </head>
+
 <body>
     <!-- 启动加载界面 -->
     <div id="loading-screen">
@@ -115,16 +123,17 @@
         <div class="sidebar">
             <!-- 顶部可拖拽区域 -->
             <div class="draggable-area"></div>
-            
+
             <div class="sidebar-header">
                 <!-- 紫色按钮包装器，包含两侧可拖拽区域 -->
                 <div class="button-wrapper">
                     <div class="drag-area-left"></div>
-                    <button id="select-video-btn" class="btn primary-btn"><i class="fas fa-file-video"></i> Open Video</button>
+                    <button id="select-video-btn" class="btn primary-btn"><i class="fas fa-file-video"></i> Open
+                        Video</button>
                     <div class="drag-area-right"></div>
                 </div>
             </div>
-            
+
             <div class="libraries-container" id="libraries-container">
                 <div class="library-header">
                     <h3>Libraries</h3>
@@ -157,8 +166,10 @@
             <div class="player-controls-row">
                 <div class="control-buttons">
                     <button id="play-pause-btn" class="btn control-btn"><i class="fas fa-play"></i></button>
-                    <button id="prev-subtitle-btn" class="btn control-btn" title="上一句"><i class="fas fa-step-backward"></i></button>
-                    <button id="next-subtitle-btn" class="btn control-btn" title="下一句"><i class="fas fa-step-forward"></i></button>
+                    <button id="prev-subtitle-btn" class="btn control-btn" title="上一句"><i
+                            class="fas fa-step-backward"></i></button>
+                    <button id="next-subtitle-btn" class="btn control-btn" title="下一句"><i
+                            class="fas fa-step-forward"></i></button>
                     <button id="subtitle-btn" class="btn control-btn"><i class="fas fa-closed-captioning"></i></button>
                     <div class="playback-rate">
                         <select id="playback-rate-select">
@@ -169,7 +180,8 @@
                             <option value="1.5">1.5x</option>
                         </select>
                     </div>
-                    <button id="loop-subtitle-btn" class="btn loop-btn" title="repeat"><i class="fas fa-sync-alt"></i></button>
+                    <button id="loop-subtitle-btn" class="btn loop-btn" title="repeat"><i
+                            class="fas fa-sync-alt"></i></button>
                     <div class="repeat-control">
                         <select id="repeat-preset">
                             <option value="1" selected>repeat 1</option>
@@ -188,7 +200,8 @@
             </div>
             <div class="subtitle-section">
                 <div class="subtitle-controls">
-                    <button id="select-subtitle-btn" class="btn subtitle-btn"><i class="fas fa-file-alt"></i> Loading Subtitle</button>
+                    <button id="select-subtitle-btn" class="btn subtitle-btn"><i class="fas fa-file-alt"></i> Load
+                        Subtitle</button>
                     <select id="subtitle-select">
                         <option value="">Subtitle List</option>
                     </select>
@@ -203,7 +216,7 @@
     <script>
         // 使用绝对路径加载模块
         require('../renderer.js');
-        
+
         // 延迟隐藏加载屏幕
         window.addEventListener('load', () => {
             setTimeout(() => {
@@ -216,4 +229,5 @@
         });
     </script>
 </body>
-</html> 
+
+</html>
