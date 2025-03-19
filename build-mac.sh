@@ -26,15 +26,6 @@ echo_color "info" "清理旧的构建文件..."
 rm -rf dist
 rm -rf node_modules/.cache
 
-# 创建必要的目录
-mkdir -p build
-
-# 如果 icon.icns 不存在，给出警告
-if [ ! -f build/icon.icns ]; then
-  echo_color "info" "注意：build/icon.icns 不存在，应用将使用默认图标"
-  # 可选：这里可以添加代码来生成默认图标
-fi
-
 # 检查 package.json 是否存在
 if [ ! -f package.json ]; then
   echo_color "error" "package.json 不存在！"
