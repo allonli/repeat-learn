@@ -22,7 +22,7 @@ function createWindow() {
       enableRemoteModule: true,  // 启用远程模块
       webSecurity: true,         // 启用web安全性
       // 在生产环境中禁用开发者工具
-      // devTools: process.env.NODE_ENV === 'development'
+      devTools: process.env.NODE_ENV === 'development'
     }
   });
 
