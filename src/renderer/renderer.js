@@ -1,6 +1,7 @@
 // 导入Node.js模块
 const fs = require('fs');
 const path = require('path');
+const { ipcRenderer } = require('electron');
 
 // 导入服务 - 使用绝对路径
 const fileSystemService = require(path.join(__dirname, 'services/FileSystemService'));
@@ -389,6 +390,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateProgress();
                 const isPlaying = videoPlayerService.togglePlayPause(videoPlayer);
                 playPauseBtn.innerHTML = isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
+                
+                // 获取视频尺寸并调整窗口大小以匹配视频宽高比
+                const videoWidth = videoPlayer.videoWidth;
+                const videoHeight = videoPlayer.videoHeight;
+                
+                if (videoWidth && videoHeight) {
+                    console.log(`视频尺寸: ${videoWidth}x${videoHeight}`);
+                    // 发送消息到主进程以调整窗口大小
+                    ipcRenderer.send('resize-window-to-aspect-ratio', {
+                        width: videoWidth,
+                        height: videoHeight
+                    });
+                }
             };
             
             // 尝试加载匹配的字幕
