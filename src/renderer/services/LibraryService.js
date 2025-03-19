@@ -1,6 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const fileSystemService = require(path.join(__dirname, 'FileSystemService'));
+const StorageUtils = require(path.join(__dirname, '../utils/StorageUtils'));
+
+// 存储键名
+const LIBRARIES_KEY = 'libraries';
+const ACTIVE_LIBRARY_INDEX_KEY = 'activeLibraryIndex';
 
 // 库管理类
 class LibraryService {
@@ -11,11 +16,10 @@ class LibraryService {
 
     // 加载保存的库
     loadLibraries() {
-        const savedLibraries = localStorage.getItem('libraries');
+        const savedLibraries = StorageUtils.get(LIBRARIES_KEY);
         if (savedLibraries) {
             try {
-                const parsedLibraries = JSON.parse(savedLibraries);
-                this.libraries = parsedLibraries;
+                this.libraries = savedLibraries;
                 
                 // 使用Electron的文件系统能力加载文件夹内容
                 this.libraries.forEach((lib, index) => {
@@ -40,7 +44,7 @@ class LibraryService {
             } catch (e) {
                 console.error('Error parsing saved libraries:', e);
                 this.libraries = [];
-                localStorage.removeItem('libraries');
+                StorageUtils.remove(LIBRARIES_KEY);
                 return false;
             }
         }
@@ -58,8 +62,7 @@ class LibraryService {
                     name: lib.name
                 };
             });
-            localStorage.setItem('libraries', JSON.stringify(serializableLibraries));
-            return true;
+            return StorageUtils.save(LIBRARIES_KEY, serializableLibraries);
         } catch (e) {
             console.error('Error saving libraries:', e);
             return false;
@@ -68,7 +71,7 @@ class LibraryService {
 
     // 加载上次激活的库
     loadLastActiveLibrary() {
-        const lastActiveLibrary = parseInt(localStorage.getItem('activeLibraryIndex') || '0');
+        const lastActiveLibrary = parseInt(StorageUtils.get(ACTIVE_LIBRARY_INDEX_KEY, false) || '0');
         if (this.libraries.length > 0 && lastActiveLibrary >= 0 && lastActiveLibrary < this.libraries.length) {
             this.currentLibraryIndex = lastActiveLibrary;
             return this.libraries[this.currentLibraryIndex];
@@ -87,7 +90,7 @@ class LibraryService {
         this.libraries.push(library);
         this.currentLibraryIndex = this.libraries.length - 1;
         this.saveLibraries();
-        localStorage.setItem('activeLibraryIndex', this.currentLibraryIndex.toString());
+        StorageUtils.save(ACTIVE_LIBRARY_INDEX_KEY, this.currentLibraryIndex.toString(), false);
         
         return library;
     }
@@ -105,17 +108,17 @@ class LibraryService {
             // 如果删除的是当前激活的库
             if (this.libraries.length > 0) {
                 this.currentLibraryIndex = 0;
-                localStorage.setItem('activeLibraryIndex', '0');
+                StorageUtils.save(ACTIVE_LIBRARY_INDEX_KEY, '0', false);
                 return this.libraries[0];
             } else {
                 this.currentLibraryIndex = -1;
-                localStorage.removeItem('activeLibraryIndex');
+                StorageUtils.remove(ACTIVE_LIBRARY_INDEX_KEY);
                 return null;
             }
         } else if (this.currentLibraryIndex > index) {
             // 如果删除的库在当前库前面，调整索引
             this.currentLibraryIndex--;
-            localStorage.setItem('activeLibraryIndex', this.currentLibraryIndex.toString());
+            StorageUtils.save(ACTIVE_LIBRARY_INDEX_KEY, this.currentLibraryIndex.toString(), false);
         }
         
         return true;
@@ -128,7 +131,7 @@ class LibraryService {
         }
         
         this.currentLibraryIndex = index;
-        localStorage.setItem('activeLibraryIndex', index.toString());
+        StorageUtils.save(ACTIVE_LIBRARY_INDEX_KEY, index.toString(), false);
         return this.libraries[index];
     }
 
