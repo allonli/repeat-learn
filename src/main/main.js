@@ -1,5 +1,6 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const remoteMain = require('@electron/remote/main');
 
 // 保持对窗口对象的全局引用，避免 JavaScript 对象被垃圾回收时窗口被关闭
 let mainWindow;
@@ -8,19 +9,34 @@ function createWindow() {
   // 创建浏览器窗口
   mainWindow = new BrowserWindow({
     width: 1200,
-    height: 800,
+    height: 850,
     titleBarStyle: 'default', 
     webPreferences: {
       nodeIntegration: true,     // 启用 Node.js 集成
       contextIsolation: false,   // 禁用上下文隔离
       enableRemoteModule: true,  // 启用远程模块
+      webSecurity: true,         // 启用web安全性
       // 在生产环境中禁用开发者工具
-      devTools: process.env.NODE_ENV === 'development'
+      // devTools: process.env.NODE_ENV === 'development'
     }
   });
 
+  // 初始化 @electron/remote
+  remoteMain.initialize();
+  remoteMain.enable(mainWindow.webContents);
+
+  // 添加内容安全策略
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': ["default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; media-src 'self' file:"]
+      }
+    });
+  });
+
   // 加载应用的 index.html
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile(path.join(__dirname, '../../src/renderer/public/index.html'));
 
   // 窗口关闭时触发
   mainWindow.on('closed', function () {
