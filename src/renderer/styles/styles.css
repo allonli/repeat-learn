@@ -138,13 +138,13 @@ body {
 }
 
 .btn.subtitle-btn {
-    background-color: var(--subtitle-btn-color);
+    background-color: #777777;
     font-weight: bold;
     padding: 8px 15px;
 }
 
 .btn.subtitle-btn:hover {
-    background-color: #3e8e41;
+    background-color: #999999;
 }
 
 .sidebar-header button {
@@ -325,6 +325,7 @@ video {
 
 .progress-container {
     margin-bottom: 10px;
+    margin-top: 15px;
 }
 
 .progress-bar {

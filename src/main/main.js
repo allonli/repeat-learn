@@ -2,6 +2,9 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const remoteMain = require('@electron/remote/main');
 
+// 初始化 @electron/remote (只初始化一次)
+remoteMain.initialize();
+
 // 保持对窗口对象的全局引用，避免 JavaScript 对象被垃圾回收时窗口被关闭
 let mainWindow;
 
@@ -9,7 +12,7 @@ function createWindow() {
   // 创建浏览器窗口
   mainWindow = new BrowserWindow({
     width: 1200,
-    height: 850,
+    height: 900,
     titleBarStyle: 'default', 
     webPreferences: {
       nodeIntegration: true,     // 启用 Node.js 集成
@@ -21,8 +24,7 @@ function createWindow() {
     }
   });
 
-  // 初始化 @electron/remote
-  remoteMain.initialize();
+  // 为当前窗口启用 remote
   remoteMain.enable(mainWindow.webContents);
 
   // 添加内容安全策略
