@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repeat</title>
+    <link rel="stylesheet" href="styles/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <button id="select-video-btn" class="btn primary-btn"><i class="fas fa-file-video"></i> 打开视频</button>
+            </div>
+            <div class="libraries-container" id="libraries-container">
+                <div class="library-header">
+                    <h3>Libraries</h3>
+                    <button id="add-library-btn" class="btn small-btn" title="添加新库"><i class="fas fa-plus"></i></button>
+                </div>
+                <div class="libraries-list" id="libraries-list">
+                    <!-- 库列表会在JS中动态生成 -->
+                </div>
+            </div>
+            <div class="playlist" id="playlist">
+                <!-- 播放列表会在JS中动态生成 -->
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="video-container">
+                <video id="video-player" controls>
+                    Your browser does not support the video tag.
+                </video>
+                <div class="controls">
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <div class="progress-time">
+                            <span id="current-time">0:00</span> <span id="duration">0:00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="player-controls-row">
+                <div class="control-buttons">
+                    <button id="play-pause-btn" class="btn control-btn"><i class="fas fa-play"></i></button>
+                    <button id="prev-subtitle-btn" class="btn control-btn" title="上一句"><i class="fas fa-step-backward"></i></button>
+                    <button id="next-subtitle-btn" class="btn control-btn" title="下一句"><i class="fas fa-step-forward"></i></button>
+                    <button id="subtitle-btn" class="btn control-btn"><i class="fas fa-closed-captioning"></i></button>
+                    <div class="playback-rate">
+                        <select id="playback-rate-select">
+                            <option value="0.5">0.5x</option>
+                            <option value="0.75">0.75x</option>
+                            <option value="1" selected>1.0x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                        </select>
+                    </div>
+                    <button id="loop-subtitle-btn" class="btn loop-btn" title="无限循环当前句"><i class="fas fa-sync-alt"></i></button>
+                    <div class="repeat-control">
+                        <select id="repeat-preset">
+                            <option value="1" selected>循环1次</option>
+                            <option value="3">循环3次</option>
+                            <option value="5">循环5次</option>
+                            <option value="10">循环10次</option>
+                            <option value="infinite">无限循环</option>
+                            <option value="custom">自定义</option>
+                        </select>
+                        <input type="number" id="repeat-count" min="1" max="20" value="1">
+                    </div>
+                </div>
+                <div class="subtitle-progress">
+                    <span id="subtitle-counter">0/0</span>
+                </div>
+            </div>
+            <div class="subtitle-section">
+                <div class="subtitle-controls">
+                    <button id="select-subtitle-btn" class="btn subtitle-btn"><i class="fas fa-file-alt"></i> 加载字幕</button>
+                    <select id="subtitle-select">
+                        <option value="">字幕列表</option>
+                    </select>
+                </div>
+                <div class="subtitle-display">
+                    <div class="subtitle-original" id="subtitle-original"></div>
+                    <div class="subtitle-translation" id="subtitle-translation"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html> 

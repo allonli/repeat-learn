@@ -1,0 +1,45 @@
+const { app, BrowserWindow } = require('electron');
+const path = require('path');
+
+// 保持对窗口对象的全局引用，避免 JavaScript 对象被垃圾回收时窗口被关闭
+let mainWindow;
+
+function createWindow() {
+  // 创建浏览器窗口
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    titleBarStyle: 'default', 
+    webPreferences: {
+      nodeIntegration: true,     // 启用 Node.js 集成
+      contextIsolation: false,   // 禁用上下文隔离
+      enableRemoteModule: true,  // 启用远程模块
+      // 在生产环境中禁用开发者工具
+      devTools: process.env.NODE_ENV === 'development'
+    }
+  });
+
+  // 加载应用的 index.html
+  mainWindow.loadFile('index.html');
+
+  // 窗口关闭时触发
+  mainWindow.on('closed', function () {
+    mainWindow = null;
+  });
+}
+
+// 应用程序准备就绪时创建窗口
+app.whenReady().then(createWindow);
+
+// 所有窗口关闭时退出应用
+app.on('window-all-closed', function () {
+  // 在 macOS 上，除非用户用 Cmd + Q 确定地退出，
+  // 否则绝大部分应用及其菜单栏会保持激活
+  if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('activate', function () {
+  // 在 macOS 上，当点击 dock 图标并且没有其他窗口打开时，
+  // 通常在应用程序中重新创建一个窗口
+  if (mainWindow === null) createWindow();
+}); 
