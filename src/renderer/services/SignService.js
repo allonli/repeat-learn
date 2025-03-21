@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const util = require('util');
+const url = require('url');
 
 /**
  * 不参与加签过程的 header key
@@ -171,11 +173,19 @@ class SignService {
 
     /**
      * 获取请求体的SHA256哈希值
-     * @param {string|Buffer} body 请求体
+     * @param {string|Buffer|URLSearchParams} body 请求体
      * @returns {string} 哈希值
      */
     static getBodySha(body) {
-        return this.hash(body);
+        const hash = crypto.createHash('sha256');
+        if (typeof body === 'string') {
+            hash.update(body);
+        } else if (body instanceof url.URLSearchParams) {
+            hash.update(body.toString());
+        } else if (util.isBuffer(body)) {
+            hash.update(body);
+        }
+        return hash.digest('hex');
     }
 
     /**
@@ -188,7 +198,7 @@ class SignService {
             method,
             host,
             uri = '/',
-            queryString = '',
+            queryString = {},
             headers = {},
             payload = '',
             accessKeyId,
@@ -199,19 +209,41 @@ class SignService {
         } = params;
 
         // 准备签名参数
-        const datetime = headers['X-Date'] || this.getDateTimeNow();
+        const requestHeaders = { ...headers };
+        if (!requestHeaders['X-Date']) {
+            requestHeaders['X-Date'] = this.getDateTimeNow();
+        }
+        if (!requestHeaders['Host'] && host) {
+            requestHeaders['Host'] = host;
+        }
+        
+        const datetime = requestHeaders['X-Date'];
         const bodySha = this.getBodySha(payload);
-
-        // 解析查询字符串为对象
-        const query = {};
-        queryString.split('&').forEach(pair => {
-            const [key, value] = pair.split('=');
-            if (key) query[key] = value || '';
-        });
+        
+        // 处理 queryString
+        let query = {};
+        if (typeof queryString === 'string') {
+            if (queryString) {
+                queryString.split('&').forEach(pair => {
+                    if (!pair) return;
+                    const [key, value] = pair.split('=');
+                    if (key) query[key] = decodeURIComponent(value || '');
+                });
+            }
+        } else {
+            query = { ...queryString };
+        }
+        
+        // 正规化 query object
+        for (const [key, val] of Object.entries(query)) {
+            if (val === undefined || val === null) {
+                query[key] = '';
+            }
+        }
 
         // 生成签名
         const authorization = this.sign({
-            headers: { ...headers, 'X-Date': datetime, Host: host },
+            headers: requestHeaders,
             query,
             region,
             serviceName: service,
@@ -226,12 +258,15 @@ class SignService {
         // 返回完整的请求头
         return {
             headers: {
-                ...headers,
-                'X-Date': datetime,
+                ...requestHeaders,
                 Authorization: authorization,
             }
         };
     }
 }
 
-module.exports = SignService; 
+// 优化导出逻辑
+if (typeof module !== 'undefined' && module.exports) {
+  // Node.js 环境
+  module.exports = SignService;
+} 

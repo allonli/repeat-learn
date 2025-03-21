@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 新增的输入框元素
     const subtitleInputContainer = document.getElementById('subtitle-input-container');
     const subtitleTranslationInput = document.getElementById('subtitle-translation-input');
-    // const translateSubtitleBtn = document.getElementById('translateSubtitleBtn');
+    const translateSubtitleBtn = document.getElementById('translateSubtitleBtn');
 
     // 当前加载的视频文件
     let currentVideoFile = null;
@@ -513,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
             populateSubtitleSelect(subtitles);
             
             // 检查字幕是否需要翻译
-            // checkNeedsTranslation();
+            checkNeedsTranslation();
             
             return true;
         } catch (error) {
@@ -571,80 +571,80 @@ document.addEventListener('DOMContentLoaded', () => {
         subtitleBtn.style.opacity = '1';
         
         // 检查是否需要翻译按钮
-        // checkNeedsTranslation();
+        checkNeedsTranslation();
     };
 
-    // // 检查字幕是否需要翻译，并显示翻译按钮
-    // const checkNeedsTranslation = () => {
-    //     // 如果没有字幕，隐藏翻译按钮
-    //     if (!subtitleService.getAllSubtitles() || subtitleService.getAllSubtitles().length === 0) {
-    //         translateSubtitleBtn.style.display = 'none';
-    //         return;
-    //     }
+    // 检查字幕是否需要翻译，并显示翻译按钮
+    const checkNeedsTranslation = () => {
+        // 如果没有字幕，隐藏翻译按钮
+        if (!subtitleService.getAllSubtitles() || subtitleService.getAllSubtitles().length === 0) {
+            translateSubtitleBtn.style.display = 'none';
+            return;
+        }
         
-    //     // 检查字幕是否需要翻译（有文本但没有中文）
-    //     if (translationService.needsTranslation(subtitleService.getAllSubtitles())) {
-    //         translateSubtitleBtn.style.display = 'inline-block';
-    //     } else {
-    //         translateSubtitleBtn.style.display = 'none';
-    //     }
-    // };
+        // 检查字幕是否需要翻译（有文本但没有中文）
+        if (translationService.needsTranslation(subtitleService.getAllSubtitles())) {
+            translateSubtitleBtn.style.display = 'inline-block';
+        } else {
+            translateSubtitleBtn.style.display = 'none';
+        }
+    };
 
-    // // 翻译当前字幕文件
-    // const translateCurrentSubtitle = async () => {
-    //     // 检查是否有字幕和当前视频文件
-    //     if (!subtitleService.getAllSubtitles() || !currentVideoFile) {
-    //         alert('没有可翻译的字幕文件');
-    //         return;
-    //     }
+    // 翻译当前字幕文件
+    const translateCurrentSubtitle = async () => {
+        // 检查是否有字幕和当前视频文件
+        if (!subtitleService.getAllSubtitles() || !currentVideoFile) {
+            alert('没有可翻译的字幕文件');
+            return;
+        }
         
-    //     // 检查是否正在翻译
-    //     if (translationService.isTranslationInProgress()) {
-    //         alert('正在翻译中，请稍候...');
-    //         return;
-    //     }
+        // 检查是否正在翻译
+        if (translationService.isTranslationInProgress()) {
+            alert('正在翻译中，请稍候...');
+            return;
+        }
         
-    //     try {
-    //         // 获取当前字幕文件路径
-    //         const subtitlePath = currentVideoFile.path.replace(/\.[^/.]+$/, '.srt');
-    //         if (!fs.existsSync(subtitlePath)) {
-    //             alert('找不到字幕文件');
-    //             return;
-    //         }
+        try {
+            // 获取当前字幕文件路径
+            const subtitlePath = currentVideoFile.path.replace(/\.[^/.]+$/, '.srt');
+            if (!fs.existsSync(subtitlePath)) {
+                alert('找不到字幕文件');
+                return;
+            }
             
-    //         // 显示加载状态
-    //         translateSubtitleBtn.disabled = true;
-    //         translateSubtitleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 翻译中...';
+            // 显示加载状态
+            translateSubtitleBtn.disabled = true;
+            translateSubtitleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 翻译中...';
             
-    //         // 翻译字幕
-    //         const subtitles = subtitleService.getAllSubtitles();
-    //         await translationService.translateSubtitles(subtitles, subtitlePath);
+            // 翻译字幕
+            const subtitles = subtitleService.getAllSubtitles();
+            await translationService.translateSubtitles(subtitles, subtitlePath);
             
-    //         // 重新加载字幕文件
-    //         const srtFile = {
-    //             name: path.basename(subtitlePath),
-    //             path: subtitlePath
-    //         };
+            // 重新加载字幕文件
+            const srtFile = {
+                name: path.basename(subtitlePath),
+                path: subtitlePath
+            };
             
-    //         await loadSubtitleFile(srtFile);
+            await loadSubtitleFile(srtFile);
             
-    //         // 重置按钮
-    //         translateSubtitleBtn.disabled = false;
-    //         translateSubtitleBtn.innerHTML = '<i class="fas fa-language"></i> 翻译字幕';
+            // 重置按钮
+            translateSubtitleBtn.disabled = false;
+            translateSubtitleBtn.innerHTML = '<i class="fas fa-language"></i> 翻译字幕';
             
-    //         // 翻译完成后，隐藏翻译按钮
-    //         translateSubtitleBtn.style.display = 'none';
+            // 翻译完成后，隐藏翻译按钮
+            translateSubtitleBtn.style.display = 'none';
             
-    //         alert('字幕翻译完成');
-    //     } catch (error) {
-    //         console.error('翻译字幕失败:', error);
-    //         alert(`翻译字幕失败: ${error.message}`);
+            alert('字幕翻译完成');
+        } catch (error) {
+            console.error('翻译字幕失败:', error);
+            alert(`翻译字幕失败: ${error.message}`);
             
-    //         // 重置按钮
-    //         translateSubtitleBtn.disabled = false;
-    //         translateSubtitleBtn.innerHTML = '<i class="fas fa-language"></i> 翻译字幕';
-    //     }
-    // };
+            // 重置按钮
+            translateSubtitleBtn.disabled = false;
+            translateSubtitleBtn.innerHTML = '<i class="fas fa-language"></i> 翻译字幕';
+        }
+    };
 
     // 事件监听器
     
@@ -1066,5 +1066,5 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 翻译字幕按钮事件
-    // translateSubtitleBtn.addEventListener('click', translateCurrentSubtitle);
+    translateSubtitleBtn.addEventListener('click', translateCurrentSubtitle);
 }); 

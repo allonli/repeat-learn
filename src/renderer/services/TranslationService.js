@@ -1,16 +1,14 @@
 const https = require('https');
-const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
-// 火山引擎翻译API凭证
-const VOLC_ACCESS_KEY_ID = process.env.VOLC_ACCESS_KEY_ID;
-const VOLC_SECRET_ACCESS_KEY = process.env.VOLC_SECRET_ACCESS_KEY;
-const VOLC_API_HOST = 'translate.volcengineapi.com';
-const VOLC_API_REGION = 'cn-north-1';
-const VOLC_API_SERVICE = 'translate';
-const VOLC_API_VERSION = '2020-06-01';
-const VOLC_ACTION = 'TranslateText';
+// 腾讯云翻译API配置
+const TX_API_HOST = 'tmt.tencentcloudapi.com';
+const TX_API_SERVICE = 'tmt';
+const TX_API_ACTION = 'TextTranslateBatch';
+const TX_API_VERSION = '2018-03-21';
+const TX_API_REGION = 'ap-shanghai';
 
 class TranslationService {
     constructor() {
@@ -18,42 +16,195 @@ class TranslationService {
     }
 
     /**
-     * 生成ISO8601格式的时间戳
-     * @returns {string} ISO8601格式的时间戳
+     * 计算SHA256哈希
+     * @param {string} message 待哈希的消息
+     * @param {string} secret 密钥（可选）
+     * @param {string} encoding 输出编码格式
+     * @returns {string|Buffer} 哈希结果
      */
-    getFormattedDate() {
-        const now = new Date();
-        return now.toISOString()
-            .replaceAll('-', '')
-            .replaceAll(':', '')
-            .replaceAll(/\.[0-9]*/g, '');
+    sha256(message, secret = "", encoding) {
+        // 添加数据类型检查和错误处理
+        if (message === undefined || message === null) {
+            console.error('sha256: message参数不能为undefined或null');
+            message = ''; // 使用空字符串作为备选
+        }
+        
+        if (secret === undefined || secret === null) {
+            console.error('sha256: secret参数不能为undefined或null');
+            secret = ''; // 使用空字符串作为备选
+        }
+        
+        try {
+            const hmac = crypto.createHmac("sha256", secret);
+            return hmac.update(String(message)).digest(encoding);
+        } catch (error) {
+            console.error('sha256计算错误:', error);
+            // 返回一个有效的默认值，防止程序崩溃
+            return encoding ? crypto.createHash('sha256').update('').digest(encoding) : 
+                             crypto.createHash('sha256').update('').digest();
+        }
     }
 
     /**
-     * 生成签名
-     * @param {string} stringToSign 要签名的字符串
-     * @param {string} secret 密钥
-     * @returns {string} 签名
+     * 计算哈希值
+     * @param {string} message 待哈希的消息
+     * @param {string} encoding 输出编码格式
+     * @returns {string} 哈希结果
      */
-    signWithHmacSha256(stringToSign, secret) {
-        const hmac = crypto.createHmac('sha256', secret);
-        hmac.update(stringToSign);
-        return hmac.digest('hex');
+    getHash(message, encoding = "hex") {
+        // 添加类型检查
+        if (message === undefined || message === null) {
+            console.error('getHash: message参数不能为undefined或null');
+            message = ''; // 使用空字符串作为备选
+        }
+        
+        try {
+            const hash = crypto.createHash("sha256");
+            return hash.update(String(message)).digest(encoding);
+        } catch (error) {
+            console.error('计算哈希值出错:', error);
+            // 返回一个有效的默认哈希值
+            return crypto.createHash('sha256').update('').digest(encoding);
+        }
+    }
+
+    /**
+     * 获取日期字符串
+     * @param {number} timestamp 时间戳（秒）
+     * @returns {string} 格式化的日期字符串（YYYY-MM-DD）
+     */
+    getDate(timestamp) {
+        const date = new Date(timestamp * 1000);
+        const year = date.getUTCFullYear();
+        const month = ("0" + (date.getUTCMonth() + 1)).slice(-2);
+        const day = ("0" + date.getUTCDate()).slice(-2);
+        return `${year}-${month}-${day}`;
+    }
+
+    /**
+     * 生成腾讯云API签名
+     * @param {object} params 签名参数
+     * @returns {object} 签名结果和请求头
+     */
+    generateTencentSignature(params) {
+        // 检查输入参数
+        if (!params || typeof params !== 'object') {
+            console.error('generateTencentSignature: params必须是有效的对象');
+            params = {};
+        }
+        
+        const { 
+            payload = {}, // 提供默认空对象
+            action = TX_API_ACTION, 
+            version = TX_API_VERSION, 
+            region = TX_API_REGION 
+        } = params;
+        
+        // 从环境变量或参数直接获取凭证，优先使用参数
+        const secretId = params.secretId || process.env.TX_SECRET_ID;
+        const secretKey = params.secretKey || process.env.TX_SECRET_KEY;
+        
+        // 检查关键参数
+        if (!secretId || !secretKey) {
+            throw new Error('腾讯云API凭证缺失: TX_SECRET_ID或TX_SECRET_KEY未设置');
+        }
+        
+        if (!region) {
+            throw new Error('腾讯云API区域缺失: TX_API_REGION未设置');
+        }
+        
+        const host = TX_API_HOST;
+        const service = TX_API_SERVICE;
+        const timestamp = Math.floor(Date.now() / 1000);
+        const date = this.getDate(timestamp);
+        
+        // 确保payload是有效的JSON对象
+        const payloadObj = payload || {};
+        const payloadString = JSON.stringify(payloadObj);
+        
+        // 步骤1：拼接规范请求串
+        const httpRequestMethod = "POST";
+        const canonicalUri = "/";
+        const canonicalQueryString = "";
+        const signedHeaders = "content-type;host";
+        const hashedRequestPayload = this.getHash(payloadString);
+        
+        const canonicalHeaders = 
+            "content-type:application/json; charset=utf-8\n" + 
+            "host:" + host + "\n";
+        
+        const canonicalRequest = 
+            httpRequestMethod + "\n" +
+            canonicalUri + "\n" +
+            canonicalQueryString + "\n" +
+            canonicalHeaders + "\n" +
+            signedHeaders + "\n" +
+            hashedRequestPayload;
+        
+        // 步骤2：拼接待签名字符串
+        const algorithm = "TC3-HMAC-SHA256";
+        const hashedCanonicalRequest = this.getHash(canonicalRequest);
+        const credentialScope = date + "/" + service + "/" + "tc3_request";
+        const stringToSign = 
+            algorithm + "\n" +
+            timestamp + "\n" +
+            credentialScope + "\n" +
+            hashedCanonicalRequest;
+        
+        // 步骤3：计算签名
+        try {
+            const kDate = this.sha256(date, "TC3" + secretKey);
+            const kService = this.sha256(service, kDate);
+            const kSigning = this.sha256("tc3_request", kService);
+            const signature = this.sha256(stringToSign, kSigning, "hex");
+            
+            // 步骤4：拼接Authorization
+            const authorization = 
+                algorithm + " " +
+                "Credential=" + secretId + "/" + credentialScope + ", " +
+                "SignedHeaders=" + signedHeaders + ", " +
+                "Signature=" + signature;
+            
+            // 构建请求头 - 确保设置Region值
+            const headers = {
+                "Authorization": authorization,
+                "Content-Type": "application/json; charset=utf-8",
+                "Host": host,
+                "X-TC-Action": action,
+                "X-TC-Timestamp": timestamp.toString(),
+                "X-TC-Version": version,
+                "X-TC-Region": region // 确保始终设置区域
+            };
+            
+            console.log("请求头信息:");
+            console.log("X-TC-Action:", action);
+            console.log("X-TC-Version:", version);
+            console.log("X-TC-Region:", region);
+            
+            return {
+                headers,
+                payload: payloadString
+            };
+        } catch (error) {
+            console.error('计算签名时出错:', error);
+            throw new Error(`生成签名失败: ${error.message}`);
+        }
     }
 
     /**
      * 翻译文本列表
      * @param {Array<string>} textList 要翻译的文本列表
      * @param {string} targetLanguage 目标语言代码
-     * @returns {Promise<Array<object>>} 翻译结果列表
+     * @param {object} credentials 凭证对象 {secretId, secretKey}
+     * @returns {Promise<Array<string>>} 翻译结果列表
      */
-    async translateTextList(textList, targetLanguage = 'zh') {
+    async translateTextList(textList, targetLanguage = 'zh', credentials = {}) {
         if (!textList || textList.length === 0) {
             return [];
         }
         
-        // 按批次处理，每批次最多15个文本
-        const batchSize = 15;
+        // 按批次处理，每批次最多100个文本
+        const batchSize = 100;
         const batches = [];
         
         for (let i = 0; i < textList.length; i += batchSize) {
@@ -66,7 +217,7 @@ class TranslationService {
         let allResults = [];
         for (let i = 0; i < batches.length; i++) {
             console.log(`处理第${i + 1}/${batches.length}批次，包含${batches[i].length}个文本`);
-            const batchResults = await this.translateBatch(batches[i], targetLanguage);
+            const batchResults = await this.translateBatch(batches[i], targetLanguage, credentials);
             allResults = allResults.concat(batchResults);
         }
         
@@ -77,89 +228,67 @@ class TranslationService {
      * 翻译一批文本
      * @param {Array<string>} textBatch 文本批次
      * @param {string} targetLanguage 目标语言
-     * @returns {Promise<Array<object>>} 翻译结果
+     * @param {object} credentials 凭证对象 {secretId, secretKey, region}
+     * @returns {Promise<Array<string>>} 翻译结果
      */
-    async translateBatch(textBatch, targetLanguage) {
+    async translateBatch(textBatch, targetLanguage, credentials = {}) {
         return new Promise((resolve, reject) => {
             try {
-                const formatDate = this.getFormattedDate();
-                const date = formatDate.slice(0, 8);
+                // 验证输入参数
+                if (!Array.isArray(textBatch) || textBatch.length === 0) {
+                    throw new Error('文本批次必须是非空数组');
+                }
+                
+                // 确定源语言和目标语言
+                let source = 'en';
+                let target = 'zh';
+                
+                // 如果包含中文，源语言是中文，目标语言是英文
+                if (this.containsChinese(textBatch[0])) {
+                    source = 'zh';
+                    target = 'en';
+                }
+                
+                // 根据传入的目标语言参数覆盖默认设置
+                if (targetLanguage) {
+                    target = targetLanguage;
+                }
                 
                 // 构建请求体
-                const requestBody = {
-                    TargetLanguage: targetLanguage,
-                    TextList: textBatch
+                const requestPayload = {
+                    SourceTextList: textBatch,
+                    Source: source,
+                    Target: target,
+                    ProjectId: 0
                 };
                 
-                const bodyString = JSON.stringify(requestBody);
-                const bodyHash = crypto.createHash('sha256').update(bodyString).digest('hex');
-
-                // 构建签名所需信息
-                const signedHeaders = {
-                    'content-type': 'application/json',
-                    'host': VOLC_API_HOST,
-                    'x-content-sha256': bodyHash,
-                    'x-date': formatDate
-                };
-
-                // 生成签名字符串
-                let signedHeadersStr = '';
-                let signedHeadersList = '';
-                for (const [key, value] of Object.entries(signedHeaders)) {
-                    signedHeadersStr += `${key}:${value}\n`;
-                    signedHeadersList += `${key};`;
-                }
-                signedHeadersList = signedHeadersList.slice(0, -1);
-
-                const credentialScope = `${date}/${VOLC_API_REGION}/${VOLC_API_SERVICE}/request`;
-                const canonicalRequest = [
-                    'POST',
-                    '/',
-                    `Action=${VOLC_ACTION}&Version=${VOLC_API_VERSION}`,
-                    signedHeadersStr,
-                    signedHeadersList,
-                    bodyHash
-                ].join('\n');
-
-                const hashedCanonicalRequest = crypto.createHash('sha256').update(canonicalRequest).digest('hex');
+                console.log('翻译请求参数:', JSON.stringify(requestPayload, null, 2));
                 
-                // 生成签名
-                const kDate = this.signWithHmacSha256(date, VOLC_SECRET_ACCESS_KEY);
-                const kRegion = this.signWithHmacSha256(VOLC_API_REGION, kDate);
-                const kService = this.signWithHmacSha256(VOLC_API_SERVICE, kRegion);
-                const signingKey = this.signWithHmacSha256('request', kService);
-
-                const stringToSign = [
-                    'HMAC-SHA256',
-                    formatDate,
-                    credentialScope,
-                    hashedCanonicalRequest
-                ].join('\n');
-
-                const signature = this.signWithHmacSha256(stringToSign, signingKey);
+                // 生成签名和请求头，传递凭证和区域
+                const { headers, payload } = this.generateTencentSignature({
+                    payload: requestPayload,
+                    secretId: credentials.secretId || process.env.TX_SECRET_ID,
+                    secretKey: credentials.secretKey || process.env.TX_SECRET_KEY,
+                    region: credentials.region || TX_API_REGION // 确保传递区域参数
+                });
                 
+                console.log('签名和请求头生成完成');
+
                 // 构建请求选项
                 const options = {
-                    hostname: VOLC_API_HOST,
+                    hostname: TX_API_HOST,
                     port: 443,
-                    path: `/?Action=${VOLC_ACTION}&Version=${VOLC_API_VERSION}`,
+                    path: '/',
                     method: 'POST',
-                    headers: {
-                        'Host': VOLC_API_HOST,
-                        'Content-Type': 'application/json',
-                        'X-Content-SHA256': bodyHash,
-                        'X-Date': formatDate,
-                        'Content-Length': Buffer.byteLength(bodyString),
-                        'Authorization': `HMAC-SHA256 Credential=${VOLC_ACCESS_KEY_ID}/${credentialScope}, SignedHeaders=${signedHeadersList}, Signature=${signature}`
-                    }
+                    headers: headers
                 };
                 
-                console.log('翻译请求选项:', {
-                    url: `https://${VOLC_API_HOST}${options.path}`,
-                    method: 'POST',
-                    headers: options.headers,
-                    body: requestBody
-                });
+                // 输出完整请求信息用于调试
+                console.log('API请求详情:');
+                console.log(`URL: https://${TX_API_HOST}/`);
+                console.log(`方法: ${options.method}`);
+                console.log(`区域: ${headers["X-TC-Region"]}`);
+                console.log('请求头:', JSON.stringify(headers, null, 2));
                 
                 // 发送请求
                 const req = https.request(options, (res) => {
@@ -173,22 +302,23 @@ class TranslationService {
                     
                     res.on('end', () => {
                         try {
-                            console.log('翻译API原始响应:', responseData);
+                            console.log('翻译API响应头:', res.headers);
                             
                             // 解析响应
                             const response = JSON.parse(responseData);
                             
-                            if (response.TranslationList) {
-                                console.log(`翻译成功，获得${response.TranslationList.length}条结果`);
-                                resolve(response.TranslationList);
-                            } else if (response.ResponseMetadata && response.ResponseMetadata.Error) {
-                                const error = response.ResponseMetadata.Error;
+                            if (response.Response && response.Response.TargetTextList) {
+                                console.log(`翻译成功，获得${response.Response.TargetTextList.length}条结果`);
+                                resolve(response.Response.TargetTextList);
+                            } else if (response.Response && response.Response.Error) {
+                                const error = response.Response.Error;
                                 reject(new Error(`翻译失败: ${error.Message || error.Code}`));
                             } else {
                                 reject(new Error('翻译API返回了无效的数据结构'));
                             }
                         } catch (error) {
                             console.error('解析翻译API响应时出错:', error);
+                            console.error('原始响应:', responseData);
                             reject(new Error(`解析翻译响应失败: ${error.message}`));
                         }
                     });
@@ -200,13 +330,13 @@ class TranslationService {
                 });
                 
                 // 设置超时
-                req.setTimeout(10000, () => {
+                req.setTimeout(15000, () => {
                     req.abort();
                     reject(new Error('翻译请求超时'));
                 });
                 
                 // 写入请求体
-                req.write(bodyString);
+                req.write(payload);
                 
                 // 结束请求
                 req.end();
@@ -253,17 +383,19 @@ class TranslationService {
             }
         }
         
-        // 如果有文本但没有中文，则需要翻译
-        return hasText && !hasChinese;
+        // 如果有文本但没有中文，则需要翻译成中文
+        // 如果有中文，则需要翻译成英文
+        return hasText;
     }
 
     /**
      * 翻译字幕并更新SRT文件
      * @param {Array<object>} subtitles 字幕数组
      * @param {string} srtPath SRT文件路径
+     * @param {object} credentials 凭证对象 {secretId, secretKey}
      * @returns {Promise<string>} 更新后的SRT内容
      */
-    async translateSubtitles(subtitles, srtPath) {
+    async translateSubtitles(subtitles, srtPath, credentials = {}) {
         this.isTranslating = true;
         
         try {
@@ -272,14 +404,22 @@ class TranslationService {
             // 提取需要翻译的文本
             const textsToTranslate = subtitles.map(subtitle => subtitle.text);
             
-            // 翻译文本
-            const translationResults = await this.translateTextList(textsToTranslate);
+            // 确定目标语言
+            const sampleText = textsToTranslate[0] || '';
+            const targetLang = this.containsChinese(sampleText) ? 'en' : 'zh';
+            
+            // 翻译文本，传递凭证
+            const translationResults = await this.translateTextList(
+                textsToTranslate, 
+                targetLang,
+                credentials
+            );
             
             // 更新字幕对象
             for (let i = 0; i < subtitles.length; i++) {
                 if (i < translationResults.length) {
                     // 添加翻译，但保留原文
-                    subtitles[i].translation = translationResults[i].Translation;
+                    subtitles[i].translation = translationResults[i];
                 }
             }
             
@@ -375,4 +515,4 @@ class TranslationService {
     }
 }
 
-module.exports = new TranslationService(); 
+module.exports = new TranslationService();
