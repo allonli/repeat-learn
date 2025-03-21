@@ -9,14 +9,51 @@ class VideoPlayerService {
         this.infiniteLoopMode = false;
     }
 
+    /**
+     * 安全处理文件路径中的特殊字符
+     * @param {String} filePath 文件路径
+     * @returns {String} 处理后的安全路径
+     */
+    sanitizeFilePath(filePath) {
+        if (!filePath) return '';
+        
+        try {
+            // 处理文件路径中的特殊字符
+            return decodeURIComponent(filePath)
+                .replace(/#/g, '%23')         // 井号
+                .replace(/%/g, '%25')         // 百分号本身
+                .replace(/\?/g, '%3F')        // 问号
+                .replace(/&/g, '%26')         // 与号
+                .replace(/\\/g, '/')          // 反斜杠转正斜杠
+                .replace(/\s+/g, ' ');        // 标准化空格
+        } catch (error) {
+            console.error('处理文件路径时出错:', error);
+            // 如果解码失败，至少保证#号被正确处理
+            return filePath.replace(/#/g, '%23');
+        }
+    }
+
     // 加载视频文件
     loadVideoFile(file, videoElement) {
         let videoURL;
         
         // 处理自定义文件对象和标准File对象
         if (file.path) {
-            // 我们使用Electron的文件系统API加载的文件
-            videoURL = `file://${file.path}`;
+            try {
+                // 使用安全处理函数处理路径
+                const filePath = this.sanitizeFilePath(file.path);
+                
+                // 使用encodeURI确保URL安全，但避免双重编码
+                const encodedPath = encodeURI(filePath);
+                videoURL = `file://${encodedPath}`;
+                
+                console.log('加载视频:', videoURL);
+            } catch (error) {
+                console.error('处理视频路径时出错:', error);
+                // 使用简单路径作为备选
+                const simplePath = file.path.replace(/#/g, '%23');
+                videoURL = `file://${simplePath}`;
+            }
         } else {
             // 浏览器标准File对象
             videoURL = URL.createObjectURL(file);

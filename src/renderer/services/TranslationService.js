@@ -2,12 +2,8 @@ const https = require('https');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-// 引入dotenv库
-const dotenv = require('dotenv');
-// 加载.env文件
-dotenv.config();
 
-// 从环境变量中获取火山引擎翻译API凭证
+// 火山引擎翻译API凭证
 const VOLC_ACCESS_KEY_ID = process.env.VOLC_ACCESS_KEY_ID;
 const VOLC_SECRET_ACCESS_KEY = process.env.VOLC_SECRET_ACCESS_KEY;
 const VOLC_API_HOST = 'translate.volcengineapi.com';
@@ -379,4 +375,4 @@ class TranslationService {
     }
 }
 
-module.exports = new TranslationService();
+module.exports = new TranslationService(); 

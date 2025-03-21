@@ -6,6 +6,8 @@ class SubtitleService {
         this.subtitles = [];
         this.currentSubtitleIndex = -1;
         this.subtitlesVisible = true;
+        this.inputMode = false; // 标记是否处于输入模式
+        this.editingSubtitle = false; // 标记是否正在编辑字幕
     }
 
     // 加载字幕文件
@@ -141,6 +143,14 @@ class SubtitleService {
     // 切换字幕可见性
     toggleSubtitlesVisibility() {
         this.subtitlesVisible = !this.subtitlesVisible;
+        
+        // 当字幕不可见时，切换输入模式
+        if (!this.subtitlesVisible) {
+            this.inputMode = true;
+        } else {
+            this.inputMode = false;
+        }
+        
         return this.subtitlesVisible;
     }
 
@@ -152,6 +162,28 @@ class SubtitleService {
     // 设置字幕可见性
     setSubtitlesVisible(visible) {
         this.subtitlesVisible = visible;
+        this.inputMode = !visible; // 当字幕不可见时启用输入模式
+    }
+    
+    // 获取输入模式状态
+    isInputMode() {
+        return this.inputMode;
+    }
+
+    // 设置编辑字幕状态
+    setEditingSubtitle(isEditing) {
+        this.editingSubtitle = isEditing;
+    }
+    
+    // 检查是否正在编辑字幕
+    isEditingSubtitle() {
+        return this.editingSubtitle;
+    }
+
+    // 清空字幕数据
+    clearSubtitles() {
+        this.subtitles = [];
+        this.currentSubtitleIndex = -1;
     }
 }
 

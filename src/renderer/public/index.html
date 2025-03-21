@@ -116,7 +116,6 @@
     <!-- 启动加载界面 -->
     <div id="loading-screen">
         <div class="loading-spinner"></div>
-        <div class="loading-text">正在加载应用...</div>
     </div>
 
     <div class="app-container">
@@ -152,15 +151,13 @@
                 <video id="video-player" controls>
                     Your browser does not support the video tag.
                 </video>
-                <div class="controls">
-                    <div class="progress-container">
-                        <div class="progress-bar">
-                            <div class="progress-fill"></div>
-                        </div>
-                        <div class="progress-time">
-                            <span id="current-time">0:00</span> <span id="duration">0:00</span>
-                        </div>
-                    </div>
+            </div>
+            <div class="controls">
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <div class="progress-time">
+                    <span id="current-time">0:00</span> <span id="duration">0:00</span>
                 </div>
             </div>
             <div class="player-controls-row">
@@ -201,14 +198,20 @@
             <div class="subtitle-section">
                 <div class="subtitle-controls">
                     <button id="select-subtitle-btn" class="btn subtitle-btn"><i class="fas fa-file-alt"></i> Load
-                        Subtitle</button>
+                        Local Subtitle</button>
+                    <button id="remote-subtitle-btn" class="btn subtitle-btn remote-btn"><i class="fas fa-cloud-download-alt"></i> Load Remote Subtitle</button>
                     <select id="subtitle-select">
                         <option value="">Subtitle List</option>
                     </select>
+                    <!-- <button id="translateSubtitleBtn" class="btn subtitle-btn translate-btn"><i class="fas fa-language"></i> Translate</button> -->
                 </div>
                 <div class="subtitle-display">
                     <div class="subtitle-original" id="subtitle-original"></div>
                     <div class="subtitle-translation" id="subtitle-translation"></div>
+                    <!-- 添加输入区域，初始状态隐藏 -->
+                    <div class="subtitle-input-container" id="subtitle-input-container" style="display: none;">
+                        <textarea id="subtitle-translation-input" class="subtitle-input" placeholder="输入翻译..."></textarea>
+                    </div>
                 </div>
             </div>
         </div>

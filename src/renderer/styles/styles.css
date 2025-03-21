@@ -145,6 +145,47 @@ body {
     background-color: var(--hover-color);
 }
 
+.btn.subtitle-btn.remote-btn {
+    background-color: #ff7b25;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn.subtitle-btn.remote-btn:hover {
+    background-color: #ff8f45;
+}
+
+.btn.subtitle-btn.remote-btn:disabled {
+    background-color: #777;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.btn.subtitle-btn.remote-btn .progress-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    background-color: #3a86ff;
+    transition: width 0.2s;
+}
+
+.btn.subtitle-btn.translate-btn {
+    background-color: #8e44ad;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn.subtitle-btn.translate-btn:hover {
+    background-color: #9b59b6;
+}
+
+.btn.subtitle-btn.translate-btn:disabled {
+    background-color: #777;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
 .sidebar-header button {
     margin-top: 0;
 }
@@ -271,12 +312,19 @@ body {
 }
 
 .playlist-item {
-    padding: 6px;
+    padding: 8px 12px;
+    margin: 5px 0;
+    background-color: #333;
     border-radius: var(--border-radius);
-    margin-bottom: 5px;
     cursor: pointer;
     transition: background-color 0.2s;
-    word-break: break-word;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.playlist-item:hover {
+    background-color: #444;
 }
 
 .playlist-item:hover,
@@ -314,14 +362,9 @@ video {
 }
 
 .controls {
-    padding: 12px;
+    padding: 8px;
     background-color: #222;
     border-radius: 0 0 var(--border-radius) var(--border-radius);
-}
-
-.progress-container {
-    margin-bottom: 10px;
-    margin-top: 10px;
 }
 
 .progress-bar {
@@ -455,6 +498,35 @@ input[type="number"] {
     color: #bbb;
     line-height: 1.4;
     padding: 5px;
+}
+
+/* 新增：字幕输入框样式 */
+.subtitle-input-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.subtitle-input {
+    width: 100%;
+    min-height: 60px;
+    background-color: rgba(30, 30, 30, 0.7);
+    color: white;
+    border: 1px solid #555;
+    border-radius: var(--border-radius);
+    padding: 10px;
+    resize: vertical;
+    font-family: inherit;
+}
+
+#subtitle-original-input {
+    font-size: 18px;
+}
+
+#subtitle-translation-input {
+    font-size: 16px;
+    color: #ddd;
 }
 
 .empty-message {

@@ -2,6 +2,20 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const remoteMain = require('@electron/remote/main');
 
+// Fix for IMKCFRunLoopWakeUpReliable error on macOS
+if (process.platform === 'darwin') {
+  process.env.IME_DISABLE_EVENTS = '1';
+  app.disableHardwareAcceleration();
+}
+
+// 尝试加载.env文件中的环境变量
+try {
+  require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+  console.log('环境变量加载成功');
+} catch (error) {
+  console.log('未找到dotenv包或.env文件，跳过环境变量加载', error);
+}
+
 // 初始化 @electron/remote (只初始化一次)
 remoteMain.initialize();
 
@@ -22,7 +36,7 @@ function createWindow() {
       enableRemoteModule: true,  // 启用远程模块
       webSecurity: true,         // 启用web安全性
       // 在生产环境中禁用开发者工具
-      devTools: process.env.NODE_ENV === 'development'
+      // devTools: process.env.NODE_ENV === 'development'
     }
   });
 
@@ -47,13 +61,6 @@ function createWindow() {
     mainWindow = null;
   });
 }
-
-// 注册IPC监听器，用于根据视频宽高比调整窗口大小
-ipcMain.on('resize-window-to-aspect-ratio', (event, { width, height }) => {
-  // 由于窗口大小现在固定，不再执行调整大小的操作
-  // 如果后续需要恢复该功能，可以重新实现或添加配置选项
-  console.log('Window resizing disabled, using fixed window size');
-});
 
 // 应用程序准备就绪时创建窗口
 app.whenReady().then(createWindow);

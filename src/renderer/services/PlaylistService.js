@@ -9,63 +9,44 @@ class PlaylistService {
 
     // 生成播放列表内容
     populatePlaylist(files, container, onItemClick) {
-        if (!container) return;
-        container.innerHTML = '';
-        
-        // 防御性检查 - 确保files存在
-        if (!files) {
-            container.innerHTML = '<div class="empty-message">No files available</div>';
+        if (!container) {
+            console.error('Playlist container is null or undefined');
             return;
         }
         
-        try {
-            // 组织文件到文件夹结构
-            this.folders = fileSystemService.organizeFilesIntoFolders(files);
+        container.innerHTML = '';
+        
+        // 排除非视频文件
+        const videoFiles = files.filter(file => this.isVideoFile(file.name));
+        
+        if (videoFiles.length === 0) {
+            container.innerHTML = '<div class="empty-message">No video files found</div>';
+            return;
+        }
+        
+        // 创建播放列表项
+        videoFiles.forEach(file => {
+            const item = document.createElement('div');
+            item.className = 'playlist-item';
+            item.dataset.path = file.path;
+            item.dataset.name = file.name;
             
-            // 如果没有有效的文件夹和文件
-            if (Object.keys(this.folders).length === 0) {
-                container.innerHTML = '<div class="empty-message">No video files found</div>';
-                return;
-            }
+            // 设置文件名并确保单行显示，超出部分用省略号
+            item.textContent = file.name;
+            item.style.whiteSpace = 'nowrap';
+            item.style.overflow = 'hidden';
+            item.style.textOverflow = 'ellipsis';
             
-            // 渲染文件夹和文件
-            Object.keys(this.folders).sort().forEach(folderName => {
-                if (folderName === '_root_') {
-                    // 直接在播放列表中渲染根文件
-                    this.folders[folderName].forEach(file => {
-                        this.createPlaylistItem(file, container, onItemClick);
-                    });
-                } else {
-                    // 创建带有文件的文件夹
-                    const folderElement = document.createElement('div');
-                    folderElement.className = 'playlist-folder';
-                    
-                    const folderHeader = document.createElement('div');
-                    folderHeader.className = 'folder-header';
-                    folderHeader.innerHTML = `<i class="fas fa-chevron-down"></i> ${folderName}`;
-                    
-                    const folderContent = document.createElement('div');
-                    folderContent.className = 'folder-content';
-                    
-                    // 添加点击事件以切换文件夹内容
-                    folderHeader.addEventListener('click', () => {
-                        this.toggleFolder(folderHeader);
-                    });
-                    
-                    // 添加文件到文件夹
-                    this.folders[folderName].forEach(file => {
-                        this.createPlaylistItem(file, folderContent, onItemClick);
-                    });
-                    
-                    folderElement.appendChild(folderHeader);
-                    folderElement.appendChild(folderContent);
-                    container.appendChild(folderElement);
+            item.addEventListener('click', () => {
+                this.updateActiveItem(item);
+                
+                if (typeof onItemClick === 'function') {
+                    onItemClick(file, item);
                 }
             });
-        } catch (error) {
-            console.error("Error populating playlist:", error);
-            container.innerHTML = `<div class="empty-message">Error loading files: ${error.message}</div>`;
-        }
+            
+            container.appendChild(item);
+        });
     }
 
     // 创建播放列表项目
@@ -110,6 +91,13 @@ class PlaylistService {
         if (item) {
             item.classList.add('active');
         }
+    }
+
+    // 判断是否为视频文件
+    isVideoFile(fileName) {
+        const videoExtensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.mpeg', '.mpg'];
+        const extension = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+        return videoExtensions.includes(extension);
     }
 }
 

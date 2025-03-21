@@ -9,6 +9,8 @@ const libraryService = require(path.join(__dirname, 'services/LibraryService'));
 const subtitleService = require(path.join(__dirname, 'services/SubtitleService'));
 const videoPlayerService = require(path.join(__dirname, 'services/VideoPlayerService'));
 const playlistService = require(path.join(__dirname, 'services/PlaylistService'));
+const remoteSubtitleService = require(path.join(__dirname, 'services/RemoteSubtitleService'));
+const translationService = require(path.join(__dirname, 'services/TranslationService'));
 
 // 获取dialog模块
 let dialog;
@@ -46,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const repeatPresetSelect = document.getElementById('repeat-preset');
     const subtitleBtn = document.getElementById('subtitle-btn');
     const selectSubtitleBtn = document.getElementById('select-subtitle-btn');
+    const remoteSubtitleBtn = document.getElementById('remote-subtitle-btn');
     const subtitleSelect = document.getElementById('subtitle-select');
     const subtitleOriginal = document.getElementById('subtitle-original');
     const subtitleTranslation = document.getElementById('subtitle-translation');
@@ -58,9 +61,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const durationEl = document.getElementById('duration');
     const librariesList = document.getElementById('libraries-list');
     const addLibraryBtn = document.getElementById('add-library-btn');
+    // 新增的输入框元素
+    const subtitleInputContainer = document.getElementById('subtitle-input-container');
+    const subtitleTranslationInput = document.getElementById('subtitle-translation-input');
+    const translateSubtitleBtn = document.getElementById('translateSubtitleBtn');
+
+    // 当前加载的视频文件
+    let currentVideoFile = null;
 
     // 初始化
     videoPlayer.controls = false; // 使用自定义控件
+    
+    // 重置远程字幕按钮状态
+    const resetRemoteSubtitleButton = () => {
+        // 清除之前的进度条
+        const existingProgress = remoteSubtitleBtn.querySelector('.progress-overlay');
+        if (existingProgress) {
+            existingProgress.remove();
+        }
+        
+        // 重置按钮文本
+        remoteSubtitleBtn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Load Remote Subtitle';
+        
+        // 默认禁用，等待视频加载后决定是否启用
+        remoteSubtitleBtn.disabled = true;
+    };
+
+    // 确保初始状态下输入框是隐藏的
+    subtitleOriginal.style.display = 'block';
+    subtitleTranslation.style.display = 'block';
+    subtitleInputContainer.style.display = 'none';
+    
+    // 初始化远程字幕按钮
+    resetRemoteSubtitleButton();
     
     // 加载库和上次激活的库
     initializeLibraries();
@@ -233,6 +266,9 @@ document.addEventListener('DOMContentLoaded', () => {
             subtitleOriginal.textContent = '';
             subtitleTranslation.textContent = '';
             subtitleCounter.textContent = '0/0';
+            
+            // 清空输入框
+            subtitleTranslationInput.value = '';
             return;
         }
 
@@ -247,6 +283,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 更新字幕下拉选择框
         subtitleSelect.value = index;
+        
+        // 更新输入框的内容（无论是否在输入模式）
+        // 优先显示用户输入的内容（如果有）
+        subtitleTranslationInput.value = subtitle.userTranslation || subtitle.translation || '';
     };
 
     // 跳转到指定字幕
@@ -298,46 +338,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 更新重复次数预设
     const updateRepeatCountFromPreset = (value) => {
-        const repeatControlElement = document.querySelector('.repeat-control');
-        if (repeatControlElement) {
-            repeatControlElement.classList.remove('custom');
-        }
-        
         if (value === "infinite") {
             videoPlayerService.setInfiniteLoopMode(true);
             loopSubtitleBtn.classList.add('active');
+            
+            // 禁用重复次数输入
             if (repeatCountInput) {
                 repeatCountInput.disabled = true;
-                repeatCountInput.style.display = 'none';
             }
             
-            // 如果当前有字幕正在播放，立即跳到当前字幕开头
-            const currentSubtitleIndex = subtitleService.getCurrentSubtitleIndex();
-            if (currentSubtitleIndex >= 0) {
-                const subtitles = subtitleService.getAllSubtitles();
-                const currentSubtitle = subtitles[currentSubtitleIndex];
-                console.log(`选择无限循环：跳转到第${currentSubtitleIndex + 1}句开头`);
-                videoPlayer.currentTime = currentSubtitle.startTime + 0.01; // 添加0.01s避免精度问题
-            }
-        } else if (value === "custom") {
-            videoPlayerService.setInfiniteLoopMode(false);
-            loopSubtitleBtn.classList.remove('active');
-            if (repeatCountInput) {
-                repeatCountInput.disabled = false;
-                if (repeatControlElement) {
-                    repeatControlElement.classList.add('custom');
-                }
-            }
+            console.log('启用无限循环模式');
         } else {
             videoPlayerService.setInfiniteLoopMode(false);
             loopSubtitleBtn.classList.remove('active');
-            if (repeatCountInput) {
-                repeatCountInput.disabled = false;
-                videoPlayerService.setRepeatCount(parseInt(value));
-                repeatCountInput.value = videoPlayerService.getRepeatCount();
+            
+            // 启用重复次数输入
+            if (value === "custom") {
+                if (document.querySelector('.repeat-control')) {
+                    document.querySelector('.repeat-control').classList.add('custom');
+                }
+            } else {
+                if (document.querySelector('.repeat-control')) {
+                    document.querySelector('.repeat-control').classList.remove('custom');
+                }
+                
+                // 根据预设设置重复次数
+                if (repeatCountInput) {
+                    repeatCountInput.disabled = false;
+                    videoPlayerService.setRepeatCount(parseInt(value));
+                    repeatCountInput.value = videoPlayerService.getRepeatCount();
+                }
             }
         }
-        videoPlayerService.resetCurrentRepeat();
     };
 
     // 切换无限循环模式
@@ -375,6 +407,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // 处理单个视频选择
     const handleVideoSelection = (file) => {
         try {
+            // 保存当前视频文件引用
+            currentVideoFile = file;
+
+            // 处理文件名中的特殊字符
+            if (file.name && file.name.includes('#')) {
+                console.log('文件名中包含特殊字符 #，进行安全处理');
+                // 创建一个新的文件对象，但安全处理文件名
+                file = {
+                    ...file,
+                    name: file.name.replace(/#/g, '_')  // 用下划线替换#以便显示
+                };
+            }
+
             const filename = videoPlayerService.loadVideoFile(file, videoPlayer);
             document.title = `Playing: ${filename}`;
             
@@ -382,6 +427,9 @@ document.addEventListener('DOMContentLoaded', () => {
             subtitleService.setCurrentSubtitleIndex(-1);
             displaySubtitle(-1);
             videoPlayerService.resetCurrentRepeat();
+            
+            // 重置远程字幕按钮
+            resetRemoteSubtitleButton();
             
             // 自动播放
             videoPlayer.onloadedmetadata = () => {
@@ -404,7 +452,14 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             
             // 尝试加载匹配的字幕
-            tryLoadMatchingSubtitle(file);
+            const hasLocalSubtitle = tryLoadMatchingSubtitle(file);
+            
+            // 如果没有本地字幕，启用远程字幕按钮
+            if (!hasLocalSubtitle) {
+                remoteSubtitleBtn.disabled = false;
+            } else {
+                remoteSubtitleBtn.disabled = true;
+            }
         } catch (error) {
             console.error('加载视频文件时出错:', error);
             alert(`加载视频文件时出错: ${error.message}`);
@@ -425,10 +480,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.lastDirectoryFiles && window.lastDirectoryFiles.length > 0) {
             const videoFileName = videoFile.name.substring(0, videoFile.name.lastIndexOf('.'));
             
+            // 安全处理文件名中的特殊字符
+            const safeVideoFileName = videoFileName.replace(/#/g, '');
+            
             // 查找与基本名称相同的SRT文件（不区分大小写）
             const matchingSrt = Array.from(window.lastDirectoryFiles).find(file => 
-                file.name.toLowerCase() === (videoFileName.toLowerCase() + '.srt') || 
-                file.name.toLowerCase() === (videoFileName.trim().toLowerCase() + '.srt'));
+                file.name.toLowerCase() === (safeVideoFileName.toLowerCase() + '.srt') || 
+                file.name.toLowerCase() === (safeVideoFileName.trim().toLowerCase() + '.srt'));
                 
             if (matchingSrt) {
                 console.log("Found matching subtitle:", matchingSrt.name);
@@ -437,8 +495,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 如果没有找到匹配的字幕，显示消息
+        // 如果没有找到匹配的字幕，重置字幕相关元素
         subtitleOriginal.textContent = "未找到字幕文件，请手动加载字幕";
+        subtitleTranslation.textContent = '';
+        subtitleSelect.innerHTML = '<option value="">跳转到字幕...</option>';
+        subtitleService.clearSubtitles();
         return false;
     };
 
@@ -446,41 +507,170 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadSubtitleFile = async (file) => {
         try {
             const subtitles = await subtitleService.loadSubtitleFile(file);
+            console.log(`已加载${subtitles.length}条字幕`);
             
             // 填充字幕选择下拉框
-            subtitleSelect.innerHTML = '<option value="">跳转到字幕...</option>';
+            populateSubtitleSelect(subtitles);
             
-            subtitles.forEach((subtitle, index) => {
-                const option = document.createElement('option');
-                option.value = index;
-                option.textContent = `${index + 1}: ${subtitle.text.substring(0, 30)}${subtitle.text.length > 30 ? '...' : ''}`;
-                subtitleSelect.appendChild(option);
-            });
+            // 检查字幕是否需要翻译
+            checkNeedsTranslation();
             
-            displaySubtitle(-1);
-            
-            subtitleBtn.style.opacity = '1';
-            subtitleService.setSubtitlesVisible(true);
-            
-            // 如果视频已经在播放，查找并显示对应的字幕
-            if (videoPlayer.currentTime > 0) {
-                const subtitleIndex = subtitleService.findSubtitleAtTime(videoPlayer.currentTime);
-                if (subtitleIndex !== -1) {
-                    subtitleService.setCurrentSubtitleIndex(subtitleIndex);
-                    displaySubtitle(subtitleIndex);
-                }
-            }
+            return true;
         } catch (error) {
-            console.error('Error loading subtitles:', error);
-            alert('Error loading subtitle file. Please select a valid SRT file.');
+            console.error('加载字幕失败:', error);
+            alert(`加载字幕失败: ${error.message}`);
+            return false;
+        }
+    };
+
+    // 填充字幕选择下拉框
+    const populateSubtitleSelect = (subtitles) => {
+        subtitleSelect.innerHTML = '<option value="">字幕列表</option>';
+        
+        if (!subtitles || subtitles.length === 0) {
+            subtitleService.setSubtitlesVisible(false);
+            subtitleBtn.style.opacity = '0.5';
+            subtitleOriginal.textContent = '';
+            subtitleTranslation.textContent = '';
+            subtitleCounter.textContent = '0/0';
+            
+            remoteSubtitleBtn.disabled = false;
+            
+            // 重置所有输入模式
+            subtitleOriginal.style.display = 'block'; 
+            subtitleTranslation.style.display = 'block';
+            subtitleInputContainer.style.display = 'none';
+            
+            return;
+        }
+        
+        // 重置远程字幕按钮状态
+        remoteSubtitleBtn.disabled = true;
+        
+        // 显示字幕
+        subtitles.forEach((subtitle, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = subtitle.text.length > 30 
+                ? subtitle.text.substring(0, 30) + '...' 
+                : subtitle.text;
+            subtitleSelect.appendChild(option);
+        });
+        
+        // 如果视频已经在播放，查找并显示对应的字幕
+        if (videoPlayer.currentTime > 0) {
+            const subtitleIndex = subtitleService.findSubtitleAtTime(videoPlayer.currentTime);
+            if (subtitleIndex !== -1) {
+                subtitleService.setCurrentSubtitleIndex(subtitleIndex);
+                displaySubtitle(subtitleIndex);
+            }
+        }
+        
+        // 启用字幕显示
+        subtitleService.setSubtitlesVisible(true);
+        subtitleBtn.style.opacity = '1';
+        
+        // 检查是否需要翻译按钮
+        checkNeedsTranslation();
+    };
+
+    // 检查字幕是否需要翻译，并显示翻译按钮
+    const checkNeedsTranslation = () => {
+        // 如果没有字幕，隐藏翻译按钮
+        if (!subtitleService.getAllSubtitles() || subtitleService.getAllSubtitles().length === 0) {
+            translateSubtitleBtn.style.display = 'none';
+            return;
+        }
+        
+        // 检查字幕是否需要翻译（有文本但没有中文）
+        if (translationService.needsTranslation(subtitleService.getAllSubtitles())) {
+            translateSubtitleBtn.style.display = 'inline-block';
+        } else {
+            translateSubtitleBtn.style.display = 'none';
+        }
+    };
+
+    // 翻译当前字幕文件
+    const translateCurrentSubtitle = async () => {
+        // 检查是否有字幕和当前视频文件
+        if (!subtitleService.getAllSubtitles() || !currentVideoFile) {
+            alert('没有可翻译的字幕文件');
+            return;
+        }
+        
+        // 检查是否正在翻译
+        if (translationService.isTranslationInProgress()) {
+            alert('正在翻译中，请稍候...');
+            return;
+        }
+        
+        try {
+            // 获取当前字幕文件路径
+            const subtitlePath = currentVideoFile.path.replace(/\.[^/.]+$/, '.srt');
+            if (!fs.existsSync(subtitlePath)) {
+                alert('找不到字幕文件');
+                return;
+            }
+            
+            // 显示加载状态
+            translateSubtitleBtn.disabled = true;
+            translateSubtitleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 翻译中...';
+            
+            // 翻译字幕
+            const subtitles = subtitleService.getAllSubtitles();
+            await translationService.translateSubtitles(subtitles, subtitlePath);
+            
+            // 重新加载字幕文件
+            const srtFile = {
+                name: path.basename(subtitlePath),
+                path: subtitlePath
+            };
+            
+            await loadSubtitleFile(srtFile);
+            
+            // 重置按钮
+            translateSubtitleBtn.disabled = false;
+            translateSubtitleBtn.innerHTML = '<i class="fas fa-language"></i> 翻译字幕';
+            
+            // 翻译完成后，隐藏翻译按钮
+            translateSubtitleBtn.style.display = 'none';
+            
+            alert('字幕翻译完成');
+        } catch (error) {
+            console.error('翻译字幕失败:', error);
+            alert(`翻译字幕失败: ${error.message}`);
+            
+            // 重置按钮
+            translateSubtitleBtn.disabled = false;
+            translateSubtitleBtn.innerHTML = '<i class="fas fa-language"></i> 翻译字幕';
         }
     };
 
     // 事件监听器
     
+    // 字幕输入框内容变化时自动保存
+    subtitleTranslationInput.addEventListener('input', () => {
+        const currentSubtitleIndex = subtitleService.getCurrentSubtitleIndex();
+        
+        if (currentSubtitleIndex !== -1) {
+            const subtitles = subtitleService.getAllSubtitles();
+            const currentSubtitle = subtitles[currentSubtitleIndex];
+            
+            if (currentSubtitle) {
+                // 保存用户输入的翻译内容到当前字幕
+                currentSubtitle.userTranslation = subtitleTranslationInput.value;
+            }
+        }
+    });
+
     // 视频时间更新
     videoPlayer.addEventListener('timeupdate', () => {
         updateProgress();
+        
+        // 如果处于输入模式，不检查更新字幕
+        if (subtitleService.isInputMode()) {
+            return;
+        }
         
         if (subtitleService.isSubtitlesVisible() && subtitleService.getAllSubtitles().length > 0) {
             checkSubtitle();
@@ -530,15 +720,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 切换字幕
     subtitleBtn.addEventListener('click', () => {
+        // 如果处于输入模式，保存当前输入
+        if (subtitleService.isInputMode()) {
+            const currentSubtitleIndex = subtitleService.getCurrentSubtitleIndex();
+            if (currentSubtitleIndex !== -1) {
+                const subtitles = subtitleService.getAllSubtitles();
+                const currentSubtitle = subtitles[currentSubtitleIndex];
+                if (currentSubtitle) {
+                    currentSubtitle.userTranslation = subtitleTranslationInput.value;
+                }
+            }
+        }
+
         const isVisible = subtitleService.toggleSubtitlesVisibility();
         subtitleBtn.style.opacity = isVisible ? '1' : '0.5';
         
         if (!isVisible) {
-            subtitleOriginal.textContent = '';
-            subtitleTranslation.textContent = '';
+            // 隐藏字幕区域，显示输入框
+            subtitleOriginal.style.display = 'none';
+            subtitleTranslation.style.display = 'none';
             subtitleCounter.textContent = '0/0';
-        } else if (subtitleService.getCurrentSubtitleIndex() !== -1) {
-            displaySubtitle(subtitleService.getCurrentSubtitleIndex());
+            subtitleInputContainer.style.display = 'flex';
+        } else {
+            // 显示字幕，隐藏输入框
+            subtitleOriginal.style.display = 'block';
+            subtitleTranslation.style.display = 'block';
+            subtitleInputContainer.style.display = 'none';
+            
+            // 恢复当前字幕显示
+            if (subtitleService.getCurrentSubtitleIndex() !== -1) {
+                displaySubtitle(subtitleService.getCurrentSubtitleIndex());
+            }
         }
     });
 
@@ -586,6 +798,48 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+
+    // 远程字幕下载按钮
+    remoteSubtitleBtn.addEventListener('click', () => {
+        // 检查是否有视频加载
+        if (!currentVideoFile) {
+            alert('请先加载视频文件');
+            return;
+        }
+        
+        // 检查文件大小是否超过50MB
+        const isLargeFile = remoteSubtitleService.isVideoSizeAbove(currentVideoFile.path, 50);
+        let shouldProceed = true;
+        
+        // 如果文件大于50MB，显示确认对话框
+        if (isLargeFile) {
+            shouldProceed = confirm('视频文件较大（>50MB），上传可能需要较长时间。是否继续？');
+        }
+        
+        if (shouldProceed) {
+            // 开始字幕处理
+            processRemoteSubtitle();
+        }
+    });
+
+    // 处理远程字幕生成
+    const processRemoteSubtitle = async () => {
+        try {
+            // 禁用按钮，防止重复点击
+            remoteSubtitleBtn.disabled = true;
+            
+            // 显示进度信息
+            updateRemoteSubtitleProgress(5, "准备处理...");
+            
+            // 直接调用下载函数
+            await downloadRemoteSubtitle();
+        } catch (error) {
+            console.error('字幕处理失败:', error);
+            alert(`字幕处理失败: ${error.message}`);
+            resetRemoteSubtitleButton();
+            remoteSubtitleBtn.disabled = false;
+        }
+    };
 
     // 视频文件选择
     selectVideoBtn.addEventListener('click', () => {
@@ -656,20 +910,78 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 键盘快捷键
     document.addEventListener('keydown', (e) => {
+        // 如果当前正在编辑字幕，则不处理播放控制快捷键
+        if (subtitleService.isEditingSubtitle() || document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        // 播放/暂停 - 空格键
         if (e.code === 'Space') {
+            togglePlayPause();
             e.preventDefault();
-            const isPlaying = videoPlayerService.togglePlayPause(videoPlayer);
-            playPauseBtn.innerHTML = isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
-        } else if (e.code === 'Enter') {
+        }
+        
+        // 前进5秒 - 右箭头
+        if (e.code === 'ArrowRight') {
+            skip(5);
             e.preventDefault();
-            goToNextSubtitle();
-        } else if (e.code === 'ArrowLeft') {
-            videoPlayer.currentTime -= 5;
-        } else if (e.code === 'ArrowRight') {
-            videoPlayer.currentTime += 5;
-        } else if (e.code === 'KeyL') {
-            // 'L' 键切换循环
+        }
+        
+        // 后退5秒 - 左箭头
+        if (e.code === 'ArrowLeft') {
+            skip(-5);
+            e.preventDefault();
+        }
+        
+        // 音量增加 - 上箭头
+        if (e.code === 'ArrowUp') {
+            changeVolume(0.05);
+            e.preventDefault();
+        }
+        
+        // 音量减小 - 下箭头
+        if (e.code === 'ArrowDown') {
+            changeVolume(-0.05);
+            e.preventDefault();
+        }
+        
+        // 切换无限循环模式 - L键
+        if (e.code === 'KeyL') {
             toggleInfiniteLoop();
+            e.preventDefault();
+        }
+        
+        // 切换字幕显示 - S键
+        if (e.code === 'KeyS') {
+            toggleSubtitleVisibility();
+            e.preventDefault();
+        }
+        
+        // 翻译字幕 - T键
+        if (e.code === 'KeyT') {
+            translateCurrentSubtitle();
+            e.preventDefault();
+        }
+        
+        // 设置播放速度
+        if (e.code === 'Digit1') {
+            setPlaybackRate(1.0);
+            e.preventDefault();
+        } else if (e.code === 'Digit2') {
+            setPlaybackRate(1.25);
+            e.preventDefault();
+        } else if (e.code === 'Digit3') {
+            setPlaybackRate(1.5);
+            e.preventDefault();
+        } else if (e.code === 'Digit4') {
+            setPlaybackRate(1.75);
+            e.preventDefault();
+        } else if (e.code === 'Digit5') {
+            setPlaybackRate(2.0);
+            e.preventDefault();
+        } else if (e.code === 'Digit0') {
+            setPlaybackRate(0.75);
+            e.preventDefault();
         }
     });
 
@@ -678,4 +990,81 @@ document.addEventListener('DOMContentLoaded', () => {
         videoPlayerService.isPlaying = false;
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
     });
+
+    // 更新远程字幕下载进度
+    const updateRemoteSubtitleProgress = (percent, statusText) => {
+        // 确保百分比在0-100之间
+        percent = Math.max(0, Math.min(100, percent));
+        
+        // 获取或创建进度条元素
+        let progressOverlay = remoteSubtitleBtn.querySelector('.progress-overlay');
+        if (!progressOverlay) {
+            progressOverlay = document.createElement('div');
+            progressOverlay.className = 'progress-overlay';
+            remoteSubtitleBtn.appendChild(progressOverlay);
+        }
+        
+        // 更新进度条宽度
+        progressOverlay.style.width = `${percent}%`;
+        
+        // 更新按钮文本以显示状态
+        if (statusText) {
+            remoteSubtitleBtn.innerHTML = `<i class="fas fa-sync fa-spin"></i> ${statusText}`;
+        }
+        
+        // 如果完成，延迟后重置按钮
+        if (percent >= 100) {
+            setTimeout(() => {
+                resetRemoteSubtitleButton();
+                remoteSubtitleBtn.disabled = true; // 下载完成后禁用按钮
+            }, 1500);
+        }
+    };
+
+    // 从远程下载字幕
+    const downloadRemoteSubtitle = async () => {
+        if (!currentVideoFile || !currentVideoFile.path) {
+            alert('请先加载视频文件');
+            return;
+        }
+        
+        try {
+            // 禁用按钮，防止重复点击
+            remoteSubtitleBtn.disabled = true;
+            
+            // 使用真实的火山引擎API获取字幕
+            const subtitleContent = await remoteSubtitleService.downloadSubtitle(
+                currentVideoFile.path,
+                updateRemoteSubtitleProgress
+            );
+            
+            // 保存字幕文件
+            const srtPath = await remoteSubtitleService.saveSubtitleFile(
+                subtitleContent,
+                currentVideoFile.path
+            );
+            
+            // 创建一个类似File对象的结构
+            const srtFile = {
+                name: path.basename(srtPath),
+                path: srtPath
+            };
+            
+            // 加载字幕
+            await loadSubtitleFile(srtFile);
+            
+            updateRemoteSubtitleProgress(100, "加载完成");
+            console.log('远程字幕下载并加载成功');
+        } catch (error) {
+            console.error('下载远程字幕时出错:', error);
+            alert(`下载远程字幕时出错: ${error.message}`);
+            
+            // 重置按钮，允许重新尝试
+            resetRemoteSubtitleButton();
+            remoteSubtitleBtn.disabled = false;
+        }
+    };
+
+    // 翻译字幕按钮事件
+    // translateSubtitleBtn.addEventListener('click', translateCurrentSubtitle);
 }); 
