@@ -589,3 +589,17 @@ input[type="number"] {
     -webkit-app-region: drag;
     z-index: 1;
 }
+
+/* Add a specific class for the Open Video button */
+.btn.video-btn {
+    background-color: #ff304f; /* Brighter red color */
+    color: white;
+    font-weight: bold;
+    box-shadow: 0 3px 6px rgba(255, 48, 79, 0.4);
+}
+
+.btn.video-btn:hover {
+    background-color: #ff5c69; /* Lighter red for hover */
+    transform: translateY(-2px);
+    box-shadow: 0 5px 10px rgba(255, 48, 79, 0.5);
+}

@@ -11,6 +11,7 @@ const videoPlayerService = require(path.join(__dirname, 'services/VideoPlayerSer
 const playlistService = require(path.join(__dirname, 'services/PlaylistService'));
 const remoteSubtitleService = require(path.join(__dirname, 'services/RemoteSubtitleService'));
 const translationService = require(path.join(__dirname, 'services/TranslationService'));
+const mediaLoaderService = require('./services/MediaLoaderService');
 
 // 获取dialog模块
 let dialog;
@@ -228,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
             displaySubtitle(subtitleIndex);
             videoPlayerService.resetCurrentRepeat();
             
-            console.log(`字幕变化：从第${prevIndex + 1}句到第${subtitleIndex + 1}句`);
+            console.log(`Subtitle changed: from #${prevIndex + 1} to #${subtitleIndex + 1}`);
         }
         
         // 如果没有找到当前字幕，什么也不做
@@ -243,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isNearEnd) {
             // 无限循环模式
             if (videoPlayerService.isInfiniteLoopMode()) {
-                console.log(`无限循环：重播第${subtitleService.getCurrentSubtitleIndex() + 1}句`);
+                console.log(`Infinite loop: replaying subtitle #${subtitleService.getCurrentSubtitleIndex() + 1}`);
                 videoPlayer.currentTime = currentSubtitle.startTime + 0.01; // 添加0.01s避免精度问题
                 return;
             }
@@ -251,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 有限重复模式
             if (videoPlayerService.getCurrentRepeat() < videoPlayerService.getRepeatCount() - 1) {
                 videoPlayerService.incrementCurrentRepeat();
-                console.log(`有限重复：第${videoPlayerService.getCurrentRepeat()}/${videoPlayerService.getRepeatCount()-1}次重复第${subtitleService.getCurrentSubtitleIndex() + 1}句`);
+                console.log(`Limited repeat: ${videoPlayerService.getCurrentRepeat()}/${videoPlayerService.getRepeatCount()-1} repetitions of subtitle #${subtitleService.getCurrentSubtitleIndex() + 1}`);
                 videoPlayer.currentTime = currentSubtitle.startTime + 0.01; // 添加0.01s避免精度问题
                 return;
             }
@@ -269,6 +270,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // 清空输入框
             subtitleTranslationInput.value = '';
+            
+            // 更新字幕控制按钮状态
+            updateSubtitleControlsState();
             return;
         }
 
@@ -287,6 +291,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // 更新输入框的内容（无论是否在输入模式）
         // 优先显示用户输入的内容（如果有）
         subtitleTranslationInput.value = subtitle.userTranslation || subtitle.translation || '';
+        
+        // 更新字幕控制按钮状态
+        updateSubtitleControlsState();
     };
 
     // 跳转到指定字幕
@@ -412,7 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 处理文件名中的特殊字符
             if (file.name && file.name.includes('#')) {
-                console.log('文件名中包含特殊字符 #，进行安全处理');
+                console.log('File name contains special character #, performing safe handling');
                 // 创建一个新的文件对象，但安全处理文件名
                 file = {
                     ...file,
@@ -428,6 +435,9 @@ document.addEventListener('DOMContentLoaded', () => {
             displaySubtitle(-1);
             videoPlayerService.resetCurrentRepeat();
             
+            // 更新字幕控制按钮状态
+            updateSubtitleControlsState();
+            
             // 重置远程字幕按钮
             resetRemoteSubtitleButton();
             
@@ -442,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const videoHeight = videoPlayer.videoHeight;
                 
                 if (videoWidth && videoHeight) {
-                    console.log(`视频尺寸: ${videoWidth}x${videoHeight}`);
+                    console.log(`Video dimensions: ${videoWidth}x${videoHeight}`);
                     // 发送消息到主进程以调整窗口大小
                     ipcRenderer.send('resize-window-to-aspect-ratio', {
                         width: videoWidth,
@@ -461,8 +471,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 remoteSubtitleBtn.disabled = true;
             }
         } catch (error) {
-            console.error('加载视频文件时出错:', error);
-            alert(`加载视频文件时出错: ${error.message}`);
+            console.error('Error loading video file:', error);
+            alert(`Error loading video file: ${error.message}`);
         }
     };
 
@@ -496,10 +506,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 如果没有找到匹配的字幕，重置字幕相关元素
-        subtitleOriginal.textContent = "未找到字幕文件，请手动加载字幕";
+        subtitleOriginal.textContent = "No subtitle file found. Please load subtitle manually.";
         subtitleTranslation.textContent = '';
-        subtitleSelect.innerHTML = '<option value="">跳转到字幕...</option>';
+        subtitleSelect.innerHTML = '<option value="">Jump to subtitle...</option>';
         subtitleService.clearSubtitles();
+        
+        // 更新字幕控制按钮状态
+        updateSubtitleControlsState();
+        
         return false;
     };
 
@@ -507,25 +521,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadSubtitleFile = async (file) => {
         try {
             const subtitles = await subtitleService.loadSubtitleFile(file);
-            console.log(`已加载${subtitles.length}条字幕`);
+            console.log(`Loaded ${subtitles.length} subtitles`);
             
             // 填充字幕选择下拉框
             populateSubtitleSelect(subtitles);
             
-            // 检查字幕是否需要翻译
-            checkNeedsTranslation();
+            // 更新字幕控制按钮状态
+            updateSubtitleControlsState();
             
             return true;
         } catch (error) {
-            console.error('加载字幕失败:', error);
-            alert(`加载字幕失败: ${error.message}`);
+            console.error('Failed to load subtitle:', error);
+            alert(`Failed to load subtitle: ${error.message}`);
+            
             return false;
         }
     };
 
     // 填充字幕选择下拉框
     const populateSubtitleSelect = (subtitles) => {
-        subtitleSelect.innerHTML = '<option value="">字幕列表</option>';
+        subtitleSelect.innerHTML = '<option value="">Subtitle List</option>';
         
         if (!subtitles || subtitles.length === 0) {
             subtitleService.setSubtitlesVisible(false);
@@ -570,8 +585,8 @@ document.addEventListener('DOMContentLoaded', () => {
         subtitleService.setSubtitlesVisible(true);
         subtitleBtn.style.opacity = '1';
         
-        // 检查是否需要翻译按钮
-        checkNeedsTranslation();
+        // 更新字幕控制按钮状态
+        updateSubtitleControlsState();
     };
 
     // 检查字幕是否需要翻译，并显示翻译按钮
@@ -584,6 +599,18 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 检查字幕是否需要翻译（有文本但没有中文）
         if (translationService.needsTranslation(subtitleService.getAllSubtitles())) {
+            // 检查当前字幕是否包含中文
+            const currentSubtitleIndex = subtitleService.getCurrentSubtitleIndex();
+            if (currentSubtitleIndex !== -1) {
+                const currentSubtitle = subtitleService.getAllSubtitles()[currentSubtitleIndex];
+                // 使用正则表达式检查是否包含中文字符
+                const hasChinese = /[\u4e00-\u9fa5]/.test(currentSubtitle.text);
+                if (hasChinese) {
+                    translateSubtitleBtn.style.display = 'none';
+                    return;
+                }
+            }
+            
             translateSubtitleBtn.style.display = 'inline-block';
         } else {
             translateSubtitleBtn.style.display = 'none';
@@ -594,13 +621,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const translateCurrentSubtitle = async () => {
         // 检查是否有字幕和当前视频文件
         if (!subtitleService.getAllSubtitles() || !currentVideoFile) {
-            alert('没有可翻译的字幕文件');
+            alert('No subtitle file to translate');
             return;
         }
         
         // 检查是否正在翻译
         if (translationService.isTranslationInProgress()) {
-            alert('正在翻译中，请稍候...');
+            alert('Translation in progress, please wait...');
             return;
         }
         
@@ -608,13 +635,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // 获取当前字幕文件路径
             const subtitlePath = currentVideoFile.path.replace(/\.[^/.]+$/, '.srt');
             if (!fs.existsSync(subtitlePath)) {
-                alert('找不到字幕文件');
+                alert('Subtitle file not found');
                 return;
             }
             
             // 显示加载状态
             translateSubtitleBtn.disabled = true;
-            translateSubtitleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 翻译中...';
+            translateSubtitleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Translating...';
             
             // 翻译字幕
             const subtitles = subtitleService.getAllSubtitles();
@@ -630,19 +657,17 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // 重置按钮
             translateSubtitleBtn.disabled = false;
-            translateSubtitleBtn.innerHTML = '<i class="fas fa-language"></i> 翻译字幕';
+            translateSubtitleBtn.innerHTML = '<i class="fas fa-language"></i> Translate';
             
             // 翻译完成后，隐藏翻译按钮
             translateSubtitleBtn.style.display = 'none';
-            
-            alert('字幕翻译完成');
         } catch (error) {
-            console.error('翻译字幕失败:', error);
-            alert(`翻译字幕失败: ${error.message}`);
+            console.error('Failed to translate subtitle:', error);
+            alert(`Failed to translate subtitle: ${error.message}`);
             
             // 重置按钮
             translateSubtitleBtn.disabled = false;
-            translateSubtitleBtn.innerHTML = '<i class="fas fa-language"></i> 翻译字幕';
+            translateSubtitleBtn.innerHTML = '<i class="fas fa-language"></i> Translate';
         }
     };
 
@@ -778,9 +803,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const filePaths = dialog.showOpenDialogSync({
             properties: ['openFile'],
             filters: [
-                { name: '字幕文件', extensions: ['srt'] }
+                { name: 'Subtitle Files', extensions: ['srt'] }
             ],
-            title: '选择字幕文件'
+            title: 'Select Subtitle File'
         });
         
         if (filePaths && filePaths.length > 0) {
@@ -793,8 +818,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 loadSubtitleFile(srtFile);
             } catch (error) {
-                console.error('加载字幕文件时出错:', error);
-                alert(`加载字幕文件时出错: ${error.message}`);
+                console.error('Error loading subtitle file:', error);
+                alert(`Error loading subtitle file: ${error.message}`);
             }
         }
     });
@@ -803,7 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
     remoteSubtitleBtn.addEventListener('click', () => {
         // 检查是否有视频加载
         if (!currentVideoFile) {
-            alert('请先加载视频文件');
+            alert('Please load a video file first');
             return;
         }
         
@@ -813,7 +838,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 如果文件大于50MB，显示确认对话框
         if (isLargeFile) {
-            shouldProceed = confirm('视频文件较大（>50MB），上传可能需要较长时间。是否继续？');
+            shouldProceed = confirm('The video file is large (>50MB), upload may take longer. Continue?');
         }
         
         if (shouldProceed) {
@@ -829,13 +854,13 @@ document.addEventListener('DOMContentLoaded', () => {
             remoteSubtitleBtn.disabled = true;
             
             // 显示进度信息
-            updateRemoteSubtitleProgress(5, "准备处理...");
+            updateRemoteSubtitleProgress(5, "Preparing...");
             
             // 直接调用下载函数
             await downloadRemoteSubtitle();
         } catch (error) {
-            console.error('字幕处理失败:', error);
-            alert(`字幕处理失败: ${error.message}`);
+            console.error('Subtitle processing failed:', error);
+            alert(`Subtitle processing failed: ${error.message}`);
             resetRemoteSubtitleButton();
             remoteSubtitleBtn.disabled = false;
         }
@@ -847,33 +872,65 @@ document.addEventListener('DOMContentLoaded', () => {
         const filePaths = dialog.showOpenDialogSync({
             properties: ['openFile'],
             filters: [
-                { name: '视频文件', extensions: ['mp4', 'mkv', 'webm', 'avi', 'mov'] }
+                { name: 'Video Files', extensions: ['mp4', 'mkv', 'webm', 'avi', 'mov'] }
             ],
-            title: '选择视频文件'
+            title: 'Select Video File'
         });
         
         if (filePaths && filePaths.length > 0) {
             const videoPath = filePaths[0];
             try {
-                // 创建一个类似File对象的结构
-                const videoFile = {
-                    name: path.basename(videoPath),
-                    path: videoPath,
-                    size: fs.statSync(videoPath).size,
-                    lastModified: fs.statSync(videoPath).mtimeMs
-                };
+                // 检查并清理文件名
+                const originalFileName = path.basename(videoPath);
+                const FileCleanupService = require('./services/FileCleanupService');
                 
-                handleVideoSelection(videoFile);
-                
-                // 添加到播放列表
-                playlistContainer.innerHTML = '';
-                const item = document.createElement('div');
-                item.className = 'playlist-item active';
-                item.textContent = videoFile.name;
-                playlistContainer.appendChild(item);
+                if (FileCleanupService.needsCleaning(originalFileName)) {
+                    // 文件名需要清理
+                    const cleanFileName = FileCleanupService.sanitizeFilename(originalFileName);
+                    const directoryPath = path.dirname(videoPath);
+                    const newFilePath = path.join(directoryPath, cleanFileName);
+                    
+                    // 重命名文件
+                    fs.renameSync(videoPath, newFilePath);
+                    console.log(`Auto-renamed file: "${originalFileName}" -> "${cleanFileName}"`);
+                    
+                    // 使用新的路径创建文件对象
+                    const videoFile = {
+                        name: cleanFileName,
+                        path: newFilePath,
+                        size: fs.statSync(newFilePath).size,
+                        lastModified: fs.statSync(newFilePath).mtimeMs
+                    };
+                    
+                    handleVideoSelection(videoFile);
+                    
+                    // 添加到播放列表
+                    playlistContainer.innerHTML = '';
+                    const item = document.createElement('div');
+                    item.className = 'playlist-item active';
+                    item.textContent = videoFile.name;
+                    playlistContainer.appendChild(item);
+                } else {
+                    // 文件名不需要清理，使用原始路径
+                    const videoFile = {
+                        name: originalFileName,
+                        path: videoPath,
+                        size: fs.statSync(videoPath).size,
+                        lastModified: fs.statSync(videoPath).mtimeMs
+                    };
+                    
+                    handleVideoSelection(videoFile);
+                    
+                    // 添加到播放列表
+                    playlistContainer.innerHTML = '';
+                    const item = document.createElement('div');
+                    item.className = 'playlist-item active';
+                    item.textContent = videoFile.name;
+                    playlistContainer.appendChild(item);
+                }
             } catch (error) {
-                console.error('加载视频文件时出错:', error);
-                alert(`加载视频文件时出错: ${error.message}`);
+                console.error('Error loading video file:', error);
+                alert(`Error loading video file: ${error.message}`);
             }
         }
     });
@@ -882,7 +939,8 @@ document.addEventListener('DOMContentLoaded', () => {
     addLibraryBtn.addEventListener('click', () => {
         // 使用Electron的对话框API选择文件夹
         const folderPath = dialog.showOpenDialogSync({
-            properties: ['openDirectory']
+            properties: ['openDirectory'],
+            title: 'Select Media Folder'
         });
         
         if (folderPath && folderPath.length > 0) {
@@ -891,19 +949,34 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 // 检查路径是否存在
                 if (fs.existsSync(selectedPath)) {
-                    const filesList = [];
-                    fileSystemService.collectFilesRecursively(selectedPath, filesList);
-                    
-                    // 添加这个目录到库中
-                    const library = libraryService.addLibrary(selectedPath, filesList);
-                    renderLibraries();
-                    loadLibraryContent(library);
+                    // 使用MediaLoaderService加载目录并清理文件名
+                    mediaLoaderService.loadMediaDirectory(selectedPath, true)
+                        .then(mediaFiles => {
+                            // 获取所有文件（包括清理后的）
+                            const filesList = [];
+                            fileSystemService.collectFilesRecursively(selectedPath, filesList);
+                            
+                            // 添加这个目录到库中
+                            const library = libraryService.addLibrary(selectedPath, filesList);
+                            renderLibraries();
+                            loadLibraryContent(library);
+                            
+                            // 显示清理信息
+                            const renamedFiles = mediaLoaderService.getRecentlyRenamed();
+                            if (renamedFiles && renamedFiles.length > 0) {
+                                console.log(`Auto-renamed ${renamedFiles.length} files`);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error processing directory:', error);
+                            alert(`Error processing directory: ${error.message}`);
+                        });
                 } else {
-                    alert('选择的文件夹不存在');
+                    alert('Selected folder does not exist');
                 }
             } catch (error) {
-                console.error('打开文件夹时出错:', error);
-                alert(`打开文件夹时出错: ${error.message}`);
+                console.error('Error opening folder:', error);
+                alert(`Error opening folder: ${error.message}`);
             }
         }
     });
@@ -1024,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 从远程下载字幕
     const downloadRemoteSubtitle = async () => {
         if (!currentVideoFile || !currentVideoFile.path) {
-            alert('请先加载视频文件');
+            alert('Please load a video file first');
             return;
         }
         
@@ -1053,11 +1126,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // 加载字幕
             await loadSubtitleFile(srtFile);
             
-            updateRemoteSubtitleProgress(100, "加载完成");
-            console.log('远程字幕下载并加载成功');
+            updateRemoteSubtitleProgress(100, "Completed");
+            console.log('Remote subtitle downloaded and loaded successfully');
         } catch (error) {
-            console.error('下载远程字幕时出错:', error);
-            alert(`下载远程字幕时出错: ${error.message}`);
+            console.error('Error downloading remote subtitle:', error);
+            alert(`Error downloading remote subtitle: ${error.message}`);
             
             // 重置按钮，允许重新尝试
             resetRemoteSubtitleButton();
@@ -1067,4 +1140,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 翻译字幕按钮事件
     translateSubtitleBtn.addEventListener('click', translateCurrentSubtitle);
+
+    // 更新字幕控制按钮的状态
+    const updateSubtitleControlsState = () => {
+        // Check if subtitles are loaded
+        const hasSubtitles = subtitleService.getAllSubtitles() && subtitleService.getAllSubtitles().length > 0;
+        
+        // Enable/disable subtitle control buttons
+        prevSubtitleBtn.disabled = !hasSubtitles;
+        nextSubtitleBtn.disabled = !hasSubtitles;
+        loopSubtitleBtn.disabled = !hasSubtitles;
+        subtitleSelect.disabled = !hasSubtitles;
+        repeatPresetSelect.disabled = !hasSubtitles;
+        repeatCountInput.disabled = !hasSubtitles;
+        
+        // Update visual state
+        prevSubtitleBtn.style.opacity = hasSubtitles ? '1' : '0.5';
+        nextSubtitleBtn.style.opacity = hasSubtitles ? '1' : '0.5';
+        loopSubtitleBtn.style.opacity = hasSubtitles ? '1' : '0.5';
+        subtitleSelect.style.opacity = hasSubtitles ? '1' : '0.5';
+        repeatPresetSelect.style.opacity = hasSubtitles ? '1' : '0.5';
+        repeatCountInput.style.opacity = hasSubtitles ? '1' : '0.5';
+        
+        // Update translation button state
+        updateTranslateButtonState();
+    };
+    
+    // Update translation button state based on subtitles and Chinese content
+    const updateTranslateButtonState = () => {
+        // If no subtitles, disable translation button
+        if (!subtitleService.getAllSubtitles() || subtitleService.getAllSubtitles().length === 0) {
+            translateSubtitleBtn.disabled = true;
+            translateSubtitleBtn.style.display = 'none';
+            return;
+        }
+        
+        // Check if translation is needed and there are no Chinese characters
+        if (translationService.needsTranslation(subtitleService.getAllSubtitles())) {
+            // Check if current subtitle contains Chinese
+            const currentSubtitleIndex = subtitleService.getCurrentSubtitleIndex();
+            if (currentSubtitleIndex !== -1) {
+                const currentSubtitle = subtitleService.getAllSubtitles()[currentSubtitleIndex];
+                // Check for Chinese characters
+                const hasChinese = /[\u4e00-\u9fa5]/.test(currentSubtitle.text);
+                if (hasChinese) {
+                    translateSubtitleBtn.disabled = true;
+                    translateSubtitleBtn.style.display = 'none';
+                    return;
+                }
+            }
+            
+            translateSubtitleBtn.disabled = false;
+            translateSubtitleBtn.style.display = 'inline-block';
+        } else {
+            translateSubtitleBtn.disabled = true;
+            translateSubtitleBtn.style.display = 'none';
+        }
+    };
+    
+    // Initialize subtitle control buttons state
+    updateSubtitleControlsState();
 }); 

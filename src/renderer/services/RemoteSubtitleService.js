@@ -401,7 +401,7 @@ class RemoteSubtitleService {
             
             // 初始进度
             let lastProgress = 30;
-            progressCallback(lastProgress, `开始生成字幕`);
+            progressCallback(lastProgress, `Subtitles downloading`);
             
             console.log('开始轮询查询结果, 最大重试次数:', maxRetries);
             const startPollTime = Date.now();
@@ -470,7 +470,7 @@ class RemoteSubtitleService {
             // 显示结束时间
             console.log('结束时间戳:', new Date().toISOString());
             
-            progressCallback(100, "字幕下载完成");
+            progressCallback(100, "Subtitle download completed");
             this.isDownloading = false;
             
             return srtContent;
