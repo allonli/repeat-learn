@@ -11,7 +11,7 @@
     --hover-color: #3a86ff;
     --background-color: #1f1f1f;
     --sidebar-color: #2d2d2d;
-    --text-color: #c5c5c5;
+    --text-color: #FFFFFF;
     --subtitle-bg: rgba(0, 0, 0, 0.7);
     --border-radius: 6px;
     --loop-color: var(--control-btn-color);
@@ -210,8 +210,8 @@ body {
 }
 
 .library-header h3 {
-    font-size: 1rem;
-    color: #ccc;
+    font-size: 0.95rem;
+    color: #8e8e8e;
 }
 
 .libraries-list {
@@ -225,7 +225,7 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 8px;
-    background-color: #3a3a3a;
+    background-color: #262626;
     border-radius: var(--border-radius);
     cursor: pointer;
 }
@@ -235,7 +235,7 @@ body {
 }
 
 .library-item.active {
-    background-color: #4a4a4a;
+    /* background-color: #4a4a4a; */
     border-left: 3px solid var(--hover-color);
     font-style: italic;
 }
@@ -312,9 +312,9 @@ body {
 }
 
 .playlist-item {
-    padding: 8px 12px;
+    padding: 5px 12px;
     margin: 5px 0;
-    background-color: #333;
+    /* background-color: #333; */
     border-radius: var(--border-radius);
     cursor: pointer;
     transition: background-color 0.2s;

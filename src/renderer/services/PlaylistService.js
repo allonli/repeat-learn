@@ -37,6 +37,9 @@ class PlaylistService {
             item.style.overflow = 'hidden';
             item.style.textOverflow = 'ellipsis';
             
+            // 添加title属性，鼠标悬停时显示完整文件名
+            item.title = file.name;
+            
             item.addEventListener('click', () => {
                 this.updateActiveItem(item);
                 
@@ -54,6 +57,9 @@ class PlaylistService {
         const item = document.createElement('div');
         item.className = 'playlist-item';
         item.textContent = file.name;
+        
+        // 添加title属性，鼠标悬停时显示完整文件名
+        item.title = file.name;
         
         // 在数据属性中存储完整的文件路径
         if (file.webkitRelativePath) {

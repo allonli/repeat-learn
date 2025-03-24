@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const subtitleOriginal = document.getElementById('subtitle-original');
     const subtitleTranslation = document.getElementById('subtitle-translation');
     const subtitleCounter = document.getElementById('subtitle-counter');
-    const selectVideoBtn = document.getElementById('select-video-btn');
+    // const selectVideoBtn = document.getElementById('select-video-btn');
     const playlistContainer = document.getElementById('playlist');
     const progressFill = document.querySelector('.progress-fill');
     const progressBar = document.querySelector('.progress-bar');
@@ -72,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 初始化
     videoPlayer.controls = false; // 使用自定义控件
+    translateSubtitleBtn.disabled = true; // 默认禁用翻译按钮
     
     // 重置远程字幕按钮状态
     const resetRemoteSubtitleButton = () => {
@@ -120,11 +121,16 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const libraryName = document.createElement('div');
             libraryName.className = 'library-name';
-            libraryName.textContent = library.name || fileSystemService.getLastPathSegment(library.path);
+            const displayName = library.name || fileSystemService.getLastPathSegment(library.path);
+            libraryName.textContent = displayName;
+            // 添加title属性，鼠标悬停时显示完整库名
+            libraryName.title = displayName;
             
             const libraryPath = document.createElement('div');
             libraryPath.className = 'library-path';
             libraryPath.textContent = library.path;
+            // 添加title属性，鼠标悬停时显示完整路径
+            libraryPath.title = library.path;
             
             const removeBtn = document.createElement('div');
             removeBtn.className = 'library-remove';
@@ -435,6 +441,9 @@ document.addEventListener('DOMContentLoaded', () => {
             displaySubtitle(-1);
             videoPlayerService.resetCurrentRepeat();
             
+            // 默认禁用翻译按钮
+            translateSubtitleBtn.disabled = true;
+            
             // 更新字幕控制按钮状态
             updateSubtitleControlsState();
             
@@ -478,6 +487,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 尝试加载匹配的字幕
     const tryLoadMatchingSubtitle = (videoFile) => {
+        // 默认禁用翻译按钮
+        translateSubtitleBtn.disabled = true;
+        
         // 使用FileSystemService查找匹配的字幕
         const srtFile = fileSystemService.findMatchingSubtitle(videoFile);
         
@@ -550,6 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
             subtitleCounter.textContent = '0/0';
             
             remoteSubtitleBtn.disabled = false;
+            translateSubtitleBtn.disabled = true;
             
             // 重置所有输入模式
             subtitleOriginal.style.display = 'block'; 
@@ -561,6 +574,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 重置远程字幕按钮状态
         remoteSubtitleBtn.disabled = true;
+        // 默认禁用翻译按钮，在updateTranslateButtonState中再决定是否启用
+        translateSubtitleBtn.disabled = true;
         
         // 显示字幕
         subtitles.forEach((subtitle, index) => {
@@ -569,6 +584,8 @@ document.addEventListener('DOMContentLoaded', () => {
             option.textContent = subtitle.text.length > 30 
                 ? subtitle.text.substring(0, 30) + '...' 
                 : subtitle.text;
+            // 添加title属性，鼠标悬停时显示完整字幕文本
+            option.title = subtitle.text;
             subtitleSelect.appendChild(option);
         });
         
@@ -591,30 +608,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 检查字幕是否需要翻译，并显示翻译按钮
     const checkNeedsTranslation = () => {
-        // 如果没有字幕，隐藏翻译按钮
+        // 默认禁用翻译按钮，防止闪动
+        translateSubtitleBtn.disabled = true;
+        
+        // 如果没有字幕，保持禁用状态
         if (!subtitleService.getAllSubtitles() || subtitleService.getAllSubtitles().length === 0) {
-            translateSubtitleBtn.style.display = 'none';
             return;
         }
         
-        // 检查字幕是否需要翻译（有文本但没有中文）
-        if (translationService.needsTranslation(subtitleService.getAllSubtitles())) {
-            // 检查当前字幕是否包含中文
-            const currentSubtitleIndex = subtitleService.getCurrentSubtitleIndex();
-            if (currentSubtitleIndex !== -1) {
-                const currentSubtitle = subtitleService.getAllSubtitles()[currentSubtitleIndex];
-                // 使用正则表达式检查是否包含中文字符
-                const hasChinese = /[\u4e00-\u9fa5]/.test(currentSubtitle.text);
-                if (hasChinese) {
-                    translateSubtitleBtn.style.display = 'none';
-                    return;
+        // 延迟检查，防止按钮闪动
+        setTimeout(() => {
+            // 检查字幕是否需要翻译（有文本但没有中文）
+            if (translationService.needsTranslation(subtitleService.getAllSubtitles())) {
+                // 检查当前字幕是否包含中文
+                const currentSubtitleIndex = subtitleService.getCurrentSubtitleIndex();
+                if (currentSubtitleIndex !== -1) {
+                    const currentSubtitle = subtitleService.getAllSubtitles()[currentSubtitleIndex];
+                    // 使用正则表达式检查是否包含中文字符
+                    const hasChinese = /[\u4e00-\u9fa5]/.test(currentSubtitle.text);
+                    if (hasChinese) {
+                        return;
+                    }
                 }
+                
+                translateSubtitleBtn.disabled = false;
             }
-            
-            translateSubtitleBtn.style.display = 'inline-block';
-        } else {
-            translateSubtitleBtn.style.display = 'none';
-        }
+        }, 500); // 延迟500毫秒检查，防止按钮闪动
     };
 
     // 翻译当前字幕文件
@@ -656,11 +675,8 @@ document.addEventListener('DOMContentLoaded', () => {
             await loadSubtitleFile(srtFile);
             
             // 重置按钮
-            translateSubtitleBtn.disabled = false;
+            translateSubtitleBtn.disabled = true;
             translateSubtitleBtn.innerHTML = '<i class="fas fa-language"></i> Translate';
-            
-            // 翻译完成后，隐藏翻译按钮
-            translateSubtitleBtn.style.display = 'none';
         } catch (error) {
             console.error('Failed to translate subtitle:', error);
             alert(`Failed to translate subtitle: ${error.message}`);
@@ -866,74 +882,74 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // 视频文件选择
-    selectVideoBtn.addEventListener('click', () => {
-        // 使用Electron的对话框API选择视频文件
-        const filePaths = dialog.showOpenDialogSync({
-            properties: ['openFile'],
-            filters: [
-                { name: 'Video Files', extensions: ['mp4', 'mkv', 'webm', 'avi', 'mov'] }
-            ],
-            title: 'Select Video File'
-        });
+    // // 视频文件选择
+    // selectVideoBtn.addEventListener('click', () => {
+    //     // 使用Electron的对话框API选择视频文件
+    //     const filePaths = dialog.showOpenDialogSync({
+    //         properties: ['openFile'],
+    //         filters: [
+    //             { name: 'Video Files', extensions: ['mp4', 'mkv', 'webm', 'avi', 'mov'] }
+    //         ],
+    //         title: 'Select Video File'
+    //     });
         
-        if (filePaths && filePaths.length > 0) {
-            const videoPath = filePaths[0];
-            try {
-                // 检查并清理文件名
-                const originalFileName = path.basename(videoPath);
-                const FileCleanupService = require('./services/FileCleanupService');
+    //     if (filePaths && filePaths.length > 0) {
+    //         const videoPath = filePaths[0];
+    //         try {
+    //             // 检查并清理文件名
+    //             const originalFileName = path.basename(videoPath);
+    //             const FileCleanupService = require('./services/FileCleanupService');
                 
-                if (FileCleanupService.needsCleaning(originalFileName)) {
-                    // 文件名需要清理
-                    const cleanFileName = FileCleanupService.sanitizeFilename(originalFileName);
-                    const directoryPath = path.dirname(videoPath);
-                    const newFilePath = path.join(directoryPath, cleanFileName);
+    //             if (FileCleanupService.needsCleaning(originalFileName)) {
+    //                 // 文件名需要清理
+    //                 const cleanFileName = FileCleanupService.sanitizeFilename(originalFileName);
+    //                 const directoryPath = path.dirname(videoPath);
+    //                 const newFilePath = path.join(directoryPath, cleanFileName);
                     
-                    // 重命名文件
-                    fs.renameSync(videoPath, newFilePath);
-                    console.log(`Auto-renamed file: "${originalFileName}" -> "${cleanFileName}"`);
+    //                 // 重命名文件
+    //                 fs.renameSync(videoPath, newFilePath);
+    //                 console.log(`Auto-renamed file: "${originalFileName}" -> "${cleanFileName}"`);
                     
-                    // 使用新的路径创建文件对象
-                    const videoFile = {
-                        name: cleanFileName,
-                        path: newFilePath,
-                        size: fs.statSync(newFilePath).size,
-                        lastModified: fs.statSync(newFilePath).mtimeMs
-                    };
+    //                 // 使用新的路径创建文件对象
+    //                 const videoFile = {
+    //                     name: cleanFileName,
+    //                     path: newFilePath,
+    //                     size: fs.statSync(newFilePath).size,
+    //                     lastModified: fs.statSync(newFilePath).mtimeMs
+    //                 };
                     
-                    handleVideoSelection(videoFile);
+    //                 handleVideoSelection(videoFile);
                     
-                    // 添加到播放列表
-                    playlistContainer.innerHTML = '';
-                    const item = document.createElement('div');
-                    item.className = 'playlist-item active';
-                    item.textContent = videoFile.name;
-                    playlistContainer.appendChild(item);
-                } else {
-                    // 文件名不需要清理，使用原始路径
-                    const videoFile = {
-                        name: originalFileName,
-                        path: videoPath,
-                        size: fs.statSync(videoPath).size,
-                        lastModified: fs.statSync(videoPath).mtimeMs
-                    };
+    //                 // 添加到播放列表
+    //                 playlistContainer.innerHTML = '';
+    //                 const item = document.createElement('div');
+    //                 item.className = 'playlist-item active';
+    //                 item.textContent = videoFile.name;
+    //                 playlistContainer.appendChild(item);
+    //             } else {
+    //                 // 文件名不需要清理，使用原始路径
+    //                 const videoFile = {
+    //                     name: originalFileName,
+    //                     path: videoPath,
+    //                     size: fs.statSync(videoPath).size,
+    //                     lastModified: fs.statSync(videoPath).mtimeMs
+    //                 };
                     
-                    handleVideoSelection(videoFile);
+    //                 handleVideoSelection(videoFile);
                     
-                    // 添加到播放列表
-                    playlistContainer.innerHTML = '';
-                    const item = document.createElement('div');
-                    item.className = 'playlist-item active';
-                    item.textContent = videoFile.name;
-                    playlistContainer.appendChild(item);
-                }
-            } catch (error) {
-                console.error('Error loading video file:', error);
-                alert(`Error loading video file: ${error.message}`);
-            }
-        }
-    });
+    //                 // 添加到播放列表
+    //                 playlistContainer.innerHTML = '';
+    //                 const item = document.createElement('div');
+    //                 item.className = 'playlist-item active';
+    //                 item.textContent = videoFile.name;
+    //                 playlistContainer.appendChild(item);
+    //             }
+    //         } catch (error) {
+    //             console.error('Error loading video file:', error);
+    //             alert(`Error loading video file: ${error.message}`);
+    //         }
+    //     }
+    // });
 
     // 添加新库
     addLibraryBtn.addEventListener('click', () => {
@@ -1168,34 +1184,32 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Update translation button state based on subtitles and Chinese content
     const updateTranslateButtonState = () => {
-        // If no subtitles, disable translation button
+        // Initially disable the button to prevent flickering
+        translateSubtitleBtn.disabled = true;
+        
+        // If no subtitles, keep it disabled
         if (!subtitleService.getAllSubtitles() || subtitleService.getAllSubtitles().length === 0) {
-            translateSubtitleBtn.disabled = true;
-            translateSubtitleBtn.style.display = 'none';
             return;
         }
         
-        // Check if translation is needed and there are no Chinese characters
-        if (translationService.needsTranslation(subtitleService.getAllSubtitles())) {
-            // Check if current subtitle contains Chinese
-            const currentSubtitleIndex = subtitleService.getCurrentSubtitleIndex();
-            if (currentSubtitleIndex !== -1) {
-                const currentSubtitle = subtitleService.getAllSubtitles()[currentSubtitleIndex];
-                // Check for Chinese characters
-                const hasChinese = /[\u4e00-\u9fa5]/.test(currentSubtitle.text);
-                if (hasChinese) {
-                    translateSubtitleBtn.disabled = true;
-                    translateSubtitleBtn.style.display = 'none';
-                    return;
+        // Only perform the check after a small delay to prevent flickering
+        setTimeout(() => {
+            // Check if translation is needed and there are no Chinese characters
+            if (translationService.needsTranslation(subtitleService.getAllSubtitles())) {
+                // Check if current subtitle contains Chinese
+                const currentSubtitleIndex = subtitleService.getCurrentSubtitleIndex();
+                if (currentSubtitleIndex !== -1) {
+                    const currentSubtitle = subtitleService.getAllSubtitles()[currentSubtitleIndex];
+                    // Check for Chinese characters
+                    const hasChinese = /[\u4e00-\u9fa5]/.test(currentSubtitle.text);
+                    if (hasChinese) {
+                        return;
+                    }
                 }
+                
+                translateSubtitleBtn.disabled = false;
             }
-            
-            translateSubtitleBtn.disabled = false;
-            translateSubtitleBtn.style.display = 'inline-block';
-        } else {
-            translateSubtitleBtn.disabled = true;
-            translateSubtitleBtn.style.display = 'none';
-        }
+        }, 500); // Add a 500ms delay before potentially enabling the button
     };
     
     // Initialize subtitle control buttons state
