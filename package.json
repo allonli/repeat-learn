@@ -6,7 +6,7 @@
     "start": "electron .",
     "build:mac": "electron-builder build --mac",
     "clean": "rimraf dist node_modules/.cache .webpack",
-    "test": "node test/sign-test.js"
+    "test": "jest"
   },
   "build": {
     "appId": "com.allonli.repeat",
