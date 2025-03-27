@@ -45,7 +45,8 @@ class FileCleanupService {
 
   /**
    * 批量重命名目录中的文件
-   * @param {string} directoryPath 需要处理的目录路径
+   * @param {string} directoryPath 需要处
+   * 理的目录路径
    * @returns {Promise<{success: boolean, renamed: Array, errors: Array}>} 重命名结果
    */
   static async cleanupDirectory(directoryPath) {
