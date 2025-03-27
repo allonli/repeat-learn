@@ -4,10 +4,18 @@ class Playlist {
     this.currentIndex = -1;
     this.container = null;
     this.onItemSelect = null;
+    this.currentFolder = null;
   }
 
   initialize(container) {
     this.container = container;
+    this.render();
+  }
+
+  loadFolder(folderPath) {
+    this.currentFolder = folderPath;
+    this.items = [];
+    this.currentIndex = -1;
     this.render();
   }
 
@@ -66,6 +74,7 @@ class Playlist {
   clear() {
     this.items = [];
     this.currentIndex = -1;
+    this.currentFolder = null;
     this.render();
   }
 
@@ -73,6 +82,25 @@ class Playlist {
     if (!this.container) return;
 
     this.container.innerHTML = '';
+    
+    // 添加文件夹信息
+    if (this.currentFolder) {
+      const folderElement = document.createElement('div');
+      folderElement.className = 'folder-info';
+      folderElement.innerHTML = `
+        <span class="folder-path">${this.currentFolder}</span>
+        <button class="clear-btn">×</button>
+      `;
+      
+      const clearBtn = folderElement.querySelector('.clear-btn');
+      clearBtn.addEventListener('click', () => {
+        this.clear();
+      });
+      
+      this.container.appendChild(folderElement);
+    }
+
+    // 添加视频列表
     this.items.forEach((item, index) => {
       const itemElement = document.createElement('div');
       itemElement.className = `playlist-item ${index === this.currentIndex ? 'active' : ''}`;

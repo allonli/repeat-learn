@@ -1,14 +1,12 @@
 const { VideoPlayer } = require('./components/VideoPlayer/VideoPlayer');
 const { SubtitleDisplay } = require('./components/SubtitleDisplay/SubtitleDisplay');
 const { Playlist } = require('./components/Playlist/Playlist');
-const { Library } = require('./components/Library/Library');
 
 class App {
   constructor() {
     this.videoPlayer = new VideoPlayer();
     this.subtitleDisplay = new SubtitleDisplay();
     this.playlist = new Playlist();
-    this.library = new Library();
   }
 
   initialize() {
@@ -24,10 +22,6 @@ class App {
     // 初始化播放列表
     const playlistContainer = document.getElementById('playlist');
     this.playlist.initialize(playlistContainer);
-
-    // 初始化库管理
-    const libraryContainer = document.getElementById('libraries-list');
-    this.library.initialize(libraryContainer);
 
     // 绑定事件
     this.bindEvents();
@@ -45,25 +39,19 @@ class App {
       this.videoPlayer.loadVideo(item.path);
       this.videoPlayer.play();
     };
-
-    // 库管理事件
-    this.library.onLibrarySelect = (library) => {
-      this.loadLibraryContent(library);
-    };
   }
 
-  async loadLibraryContent(library) {
+  async loadFolder(folderPath) {
     try {
-      const content = await this.loadLibraryVideos(library.path);
-      this.library.setLibraryContent(library.id, content);
-      this.playlist.clear();
-      content.forEach(item => this.playlist.addItem(item));
+      const videos = await this.loadVideosFromFolder(folderPath);
+      this.playlist.loadFolder(folderPath);
+      videos.forEach(item => this.playlist.addItem(item));
     } catch (error) {
-      console.error('Failed to load library content:', error);
+      console.error('Failed to load folder:', error);
     }
   }
 
-  async loadLibraryVideos(path) {
+  async loadVideosFromFolder(path) {
     // 这里应该实现从文件系统加载视频文件的逻辑
     // 返回格式化的视频项数组
     return [];

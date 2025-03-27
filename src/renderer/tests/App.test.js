@@ -23,10 +23,6 @@ describe('App', () => {
       'playlist': {
         innerHTML: '',
         appendChild: jest.fn()
-      },
-      'libraries-list': {
-        innerHTML: '',
-        appendChild: jest.fn()
       }
     };
 
@@ -42,7 +38,6 @@ describe('App', () => {
     expect(app.subtitleDisplay.originalElement).toBe(mockElements['subtitle-original']);
     expect(app.subtitleDisplay.translationElement).toBe(mockElements['subtitle-translation']);
     expect(app.playlist.container).toBe(mockElements['playlist']);
-    expect(app.library.container).toBe(mockElements['libraries-list']);
   });
 
   test('should bind video player events', () => {
@@ -77,16 +72,19 @@ describe('App', () => {
     expect(mockElements['video-player'].play).toHaveBeenCalled();
   });
 
-  test('should handle library selection', async () => {
-    const mockLibrary = {
-      id: 1,
-      name: 'Test Library',
-      path: '/path/to/library'
-    };
-    
-    await app.library.onLibrarySelect(mockLibrary);
-    
-    expect(app.library.getLibraryContent(1)).toBeDefined();
-    expect(app.playlist.getItems()).toHaveLength(0);
+  test('should handle folder loading', async () => {
+    const mockFolderPath = '/path/to/folder';
+    const mockVideos = [
+      { id: 1, title: 'Video 1', path: '/path/to/video1.mp4' },
+      { id: 2, title: 'Video 2', path: '/path/to/video2.mp4' }
+    ];
+
+    // Mock loadVideosFromFolder
+    app.loadVideosFromFolder = jest.fn().mockResolvedValue(mockVideos);
+
+    await app.loadFolder(mockFolderPath);
+
+    expect(app.playlist.currentFolder).toBe(mockFolderPath);
+    expect(app.playlist.getItems()).toEqual(mockVideos);
   });
 }); 
