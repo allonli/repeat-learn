@@ -321,7 +321,9 @@ class RemoteSubtitleService {
      */
     async getVideoInfo(videoPath) {
         try {
-            const durationInSeconds = await getVideoDurationInSeconds(videoPath);
+            // Use system ffprobe instead of bundled one
+            const ffprobePath = '/opt/homebrew/bin/ffprobe';
+            const durationInSeconds = await getVideoDurationInSeconds(videoPath, ffprobePath);
             console.log(`视频时长: ${durationInSeconds}秒`);
             
             // 获取文件信息
