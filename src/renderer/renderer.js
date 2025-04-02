@@ -66,6 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const subtitleInputContainer = document.getElementById('subtitle-input-container');
     const subtitleTranslationInput = document.getElementById('subtitle-translation-input');
     const translateSubtitleBtn = document.getElementById('translateSubtitleBtn');
+    const translateBtn = document.getElementById('translate-btn');
+    const setupTencentCloudBtn = document.getElementById('setup-tencent-cloud-btn');
 
     // 当前加载的视频文件
     let currentVideoFile = null;
@@ -1200,4 +1202,30 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize subtitle control buttons state
     updateSubtitleControlsState();
+
+    // 设置腾讯云API凭证
+    const setupTencentCloudCredentials = async () => {
+        try {
+            const secretId = prompt('请输入腾讯云 SecretId:');
+            if (!secretId) return;
+
+            const secretKey = prompt('请输入腾讯云 SecretKey:');
+            if (!secretKey) return;
+
+            await translationService.setCredentials(secretId, secretKey);
+            alert('腾讯云API凭证设置成功！');
+            updateTranslateButtonState();
+        } catch (error) {
+            console.error('设置腾讯云API凭证失败:', error);
+            alert('设置腾讯云API凭证失败: ' + error.message);
+        }
+    };
+
+    // 绑定事件监听器
+    if (setupTencentCloudBtn) {
+        setupTencentCloudBtn.addEventListener('click', setupTencentCloudCredentials);
+    }
+
+    // 初始化时检查凭证状态
+    updateTranslateButtonState();
 }); 

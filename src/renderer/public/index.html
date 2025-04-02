@@ -159,41 +159,47 @@
                 <div class="progress-time">
                     <span id="current-time">0:00</span> <span id="duration">0:00</span>
                 </div>
+                <button id="play-pause-btn" class="control-btn">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button id="prev-subtitle-btn" class="control-btn">
+                    <i class="fas fa-step-backward"></i>
+                </button>
+                <button id="next-subtitle-btn" class="control-btn">
+                    <i class="fas fa-step-forward"></i>
+                </button>
+                <button id="loop-subtitle-btn" class="control-btn">
+                    <i class="fas fa-redo"></i>
+                </button>
+                <select id="playback-rate-select" class="control-select">
+                    <option value="0.5">0.5x</option>
+                    <option value="0.75">0.75x</option>
+                    <option value="1.0" selected>1.0x</option>
+                    <option value="1.25">1.25x</option>
+                    <option value="1.5">1.5x</option>
+                    <option value="2.0">2.0x</option>
+                </select>
+                <input type="number" id="repeat-count" class="control-input" min="1" value="1">
+                <select id="repeat-preset" class="control-select">
+                    <option value="1">1次</option>
+                    <option value="2">2次</option>
+                    <option value="3">3次</option>
+                    <option value="5">5次</option>
+                    <option value="10">10次</option>
+                    <option value="infinite">无限</option>
+                </select>
+                <button id="subtitle-btn" class="control-btn">
+                    <i class="fas fa-closed-captioning"></i>
+                </button>
+                <button id="translate-btn" class="control-btn" title="翻译当前字幕">
+                    <i class="fas fa-language"></i>
+                </button>
+                <button id="setup-tencent-cloud-btn" class="control-btn" title="设置腾讯云API凭证">
+                    <i class="fas fa-key"></i>
+                </button>
             </div>
-            <div class="player-controls-row">
-                <div class="control-buttons">
-                    <button id="play-pause-btn" class="btn control-btn"><i class="fas fa-play"></i></button>
-                    <button id="prev-subtitle-btn" class="btn control-btn" title="Previous Subtitle"><i
-                            class="fas fa-step-backward"></i></button>
-                    <button id="next-subtitle-btn" class="btn control-btn" title="Next Subtitle"><i
-                            class="fas fa-step-forward"></i></button>
-                    <button id="subtitle-btn" class="btn control-btn"><i class="fas fa-closed-captioning"></i></button>
-                    <div class="playback-rate">
-                        <select id="playback-rate-select">
-                            <option value="0.5">0.5x</option>
-                            <option value="0.75">0.75x</option>
-                            <option value="1" selected>1.0x</option>
-                            <option value="1.25">1.25x</option>
-                            <option value="1.5">1.5x</option>
-                        </select>
-                    </div>
-                    <button id="loop-subtitle-btn" class="btn loop-btn" title="repeat"><i
-                            class="fas fa-sync-alt"></i></button>
-                    <div class="repeat-control">
-                        <select id="repeat-preset">
-                            <option value="1" selected>repeat 1</option>
-                            <option value="3">repeat 3</option>
-                            <option value="5">repeat 5</option>
-                            <option value="10">repeat 10</option>
-                            <option value="infinite">repeat n</option>
-                            <option value="custom">custom</option>
-                        </select>
-                        <input type="number" id="repeat-count" min="1" max="20" value="1">
-                    </div>
-                </div>
-                <div class="subtitle-progress">
-                    <span id="subtitle-counter">0/0</span>
-                </div>
+            <div class="subtitle-progress">
+                <span id="subtitle-counter">0/0</span>
             </div>
             <div class="subtitle-section">
                 <div class="subtitle-controls">

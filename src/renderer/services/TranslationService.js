@@ -10,9 +10,72 @@ const TX_API_ACTION = 'TextTranslateBatch';
 const TX_API_VERSION = '2018-03-21';
 const TX_API_REGION = 'ap-shanghai';
 
+// 配置文件路径
+const CONFIG_FILE = path.join(process.env.APPDATA || process.env.HOME, '.repeat', 'config.json');
+
 class TranslationService {
     constructor() {
         this.isTranslating = false;
+        this.credentials = this.loadCredentials();
+    }
+
+    /**
+     * 加载配置文件中的凭证
+     * @returns {Object} 凭证对象
+     */
+    loadCredentials() {
+        try {
+            if (fs.existsSync(CONFIG_FILE)) {
+                const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+                return {
+                    secretId: config.txSecretId,
+                    secretKey: config.txSecretKey
+                };
+            }
+        } catch (error) {
+            console.error('加载配置文件失败:', error);
+        }
+        return {};
+    }
+
+    /**
+     * 保存凭证到配置文件
+     * @param {string} secretId 腾讯云SecretId
+     * @param {string} secretKey 腾讯云SecretKey
+     */
+    setCredentials(secretId, secretKey) {
+        try {
+            // 确保配置目录存在
+            const configDir = path.dirname(CONFIG_FILE);
+            if (!fs.existsSync(configDir)) {
+                fs.mkdirSync(configDir, { recursive: true });
+            }
+
+            // 读取现有配置或创建新配置
+            let config = {};
+            if (fs.existsSync(CONFIG_FILE)) {
+                config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+            }
+
+            // 更新凭证
+            config.txSecretId = secretId;
+            config.txSecretKey = secretKey;
+
+            // 保存配置
+            fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+            this.credentials = { secretId, secretKey };
+        } catch (error) {
+            console.error('保存配置文件失败:', error);
+            throw new Error('保存凭证失败: ' + error.message);
+        }
+    }
+
+    /**
+     * 检查是否已设置凭证
+     * @returns {boolean} 是否已设置凭证
+     */
+    hasCredentials() {
+        return !!(this.credentials.secretId && this.credentials.secretKey);
     }
 
     /**
@@ -100,13 +163,13 @@ class TranslationService {
             region = TX_API_REGION 
         } = params;
         
-        // 从环境变量或参数直接获取凭证，优先使用参数
-        const secretId = params.secretId || process.env.TX_SECRET_ID;
-        const secretKey = params.secretKey || process.env.TX_SECRET_KEY;
+        // 从参数或存储的凭证中获取
+        const secretId = params.secretId || this.credentials.secretId;
+        const secretKey = params.secretKey || this.credentials.secretKey;
         
         // 检查关键参数
         if (!secretId || !secretKey) {
-            throw new Error('腾讯云API凭证缺失: TX_SECRET_ID或TX_SECRET_KEY未设置');
+            throw new Error('腾讯云API凭证缺失: 请先设置TX_SECRET_ID和TX_SECRET_KEY');
         }
         
         if (!region) {
