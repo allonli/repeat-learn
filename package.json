@@ -34,7 +34,7 @@
       "!.editorconfig",
       "!.git",
       "!build/.*",
-      "!{.env,.env.example,.eslintrc.cjs,.gitignore,.prettierrc}",
+      "!{.eslintrc.cjs,.gitignore,.prettierrc}",
       "!**/*.ts",
       "!*.code-workspace",
       "!LICENSE.md",
@@ -54,6 +54,10 @@
       {
         "from": "src/extraResources/",
         "to": "extraResources"
+      },
+      {
+        "from": ".env",
+        "to": ".env"
       }
     ]
   },

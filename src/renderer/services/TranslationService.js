@@ -2,6 +2,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { app } = require('@electron/remote');
 
 // 腾讯云翻译API配置
 const TX_API_HOST = 'tmt.tencentcloudapi.com';
@@ -13,6 +14,60 @@ const TX_API_REGION = 'ap-shanghai';
 class TranslationService {
     constructor() {
         this.isTranslating = false;
+        this.loadCredentials();
+    }
+
+    /**
+     * 加载API凭证
+     */
+    loadCredentials() {
+        try {
+            // 从环境变量加载凭证
+            this.secretId = process.env.TX_SECRET_ID;
+            this.secretKey = process.env.TX_SECRET_KEY;
+
+            // 验证凭证
+            if (!this.secretId || !this.secretKey) {
+                console.warn('警告: 腾讯云API凭证未设置，尝试从.env文件加载');
+                
+                // 尝试从不同位置加载.env文件
+                const possibleEnvPaths = [
+                    path.join(app.getAppPath(), '.env'),
+                    path.join(app.getAppPath(), '..', '.env'),
+                    path.join(app.getAppPath(), '..', '..', '.env'),
+                    path.join(process.resourcesPath, '.env')
+                ];
+                
+                let envContent = null;
+                for (const envPath of possibleEnvPaths) {
+                    if (fs.existsSync(envPath)) {
+                        console.log('找到.env文件:', envPath);
+                        envContent = fs.readFileSync(envPath, 'utf8');
+                        break;
+                    }
+                }
+                
+                if (envContent) {
+                    const secretIdMatch = envContent.match(/TX_SECRET_ID="([^"]+)"/);
+                    const secretKeyMatch = envContent.match(/TX_SECRET_KEY="([^"]+)"/);
+                    
+                    if (secretIdMatch && secretKeyMatch) {
+                        this.secretId = secretIdMatch[1];
+                        this.secretKey = secretKeyMatch[1];
+                        console.log('从.env文件加载凭证成功');
+                    }
+                }
+            }
+
+            if (!this.secretId || !this.secretKey) {
+                throw new Error('腾讯云API凭证缺失，请确保.env文件存在且包含正确的凭证');
+            }
+            
+            console.log('API凭证加载成功');
+        } catch (error) {
+            console.error('加载API凭证失败:', error);
+            throw error;
+        }
     }
 
     /**
@@ -100,9 +155,9 @@ class TranslationService {
             region = TX_API_REGION 
         } = params;
         
-        // 从环境变量或参数直接获取凭证，优先使用参数
-        const secretId = params.secretId || process.env.TX_SECRET_ID;
-        const secretKey = params.secretKey || process.env.TX_SECRET_KEY;
+        // 使用类中存储的凭证
+        const secretId = this.secretId;
+        const secretKey = this.secretKey;
         
         // 检查关键参数
         if (!secretId || !secretKey) {
