@@ -3,6 +3,7 @@ const path = require('path');
 const https = require('https');
 const { Buffer } = require('buffer');
 const { getVideoDurationInSeconds } = require('get-video-duration');
+const { execSync } = require('child_process');
 
 // 火山引擎字幕API凭证
 const VOLC_APP_ID = '9671189695';
@@ -321,11 +322,38 @@ class RemoteSubtitleService {
      */
     async getVideoInfo(videoPath) {
         try {
-            const durationInSeconds = await getVideoDurationInSeconds(videoPath);
-            console.log(`视频时长: ${durationInSeconds}秒`);
+            // 确保视频路径存在且可访问
+            if (!fs.existsSync(videoPath)) {
+                throw new Error(`视频文件不存在: ${videoPath}`);
+            }
+
+            // 获取文件状态以验证是否为文件
+            const stats = fs.statSync(videoPath);
+            if (!stats.isFile()) {
+                throw new Error(`路径不是文件: ${videoPath}`);
+            }
+
+            // 使用系统 ffprobe 获取视频时长
+            let durationInSeconds = 0;
+            try {
+                // 使用完整路径的 ffprobe 命令
+                const ffprobeCommand = '/opt/homebrew/bin/ffprobe';
+                const ffprobeOutput = execSync(`"${ffprobeCommand}" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`);
+                durationInSeconds = parseFloat(ffprobeOutput.toString().trim());
+                console.log(`视频时长: ${durationInSeconds}秒`);
+            } catch (ffprobeError) {
+                console.error('使用 ffprobe 获取视频时长失败:', ffprobeError);
+                // 如果 ffprobe 失败，尝试使用 get-video-duration
+                try {
+                    durationInSeconds = await getVideoDurationInSeconds(videoPath);
+                    console.log(`使用 get-video-duration 获取视频时长: ${durationInSeconds}秒`);
+                } catch (durationError) {
+                    console.error('使用 get-video-duration 获取视频时长也失败:', durationError);
+                    throw new Error('无法获取视频时长，请确保视频文件格式正确');
+                }
+            }
             
             // 获取文件信息
-            const stats = fs.statSync(videoPath);
             const fileSizeInBytes = stats.size;
             const fileSizeInMB = fileSizeInBytes / (1024 * 1024);
             
@@ -338,13 +366,7 @@ class RemoteSubtitleService {
             };
         } catch (error) {
             console.error('获取视频信息失败:', error);
-            return {
-                duration: 0,
-                size: 0,
-                sizeMB: 0,
-                path: videoPath,
-                filename: path.basename(videoPath)
-            };
+            throw new Error(`获取视频信息失败: ${error.message}`);
         }
     }
 
